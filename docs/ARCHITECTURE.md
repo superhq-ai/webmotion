@@ -27,12 +27,13 @@ Composition ── Timeline (frame clock)
 | WebCodecs encoder w/ backpressure | `export/encoder` | ✅ (browser) |
 | Offline export loop | `export/exporter` | ✅ (browser) |
 | Declarative custom elements (`<w-*>`) | `elements/*` | ✅ tested |
+| Audio timeline + WebAudio mixdown | `audio/*` | ✅ tested |
 
 The browser-only pieces (canvas capture → WebCodecs → mux) run behind the same `Renderer` interface the unit tests drive via a `NullRenderer`, so the frame logic is identical in Node and the browser.
 
 ### Not yet built
 
-WebGL / WebGPU backends, audio pipeline, WebM muxing, Web Worker export.
+WebGL / WebGPU backends, WebM muxing, Web Worker export, audio in the programmatic (non-element) API.
 
 ## The HTML backend
 

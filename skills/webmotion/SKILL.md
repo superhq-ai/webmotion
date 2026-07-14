@@ -62,6 +62,7 @@ Import once, then the scene is markup:
 | `<w-el>` | `x` `y` `width` `height` `opacity` | Generic entity; put arbitrary HTML inside. |
 | `<w-animate>` | `property` `from` `to` `start` `end` `easing` | One tween. As a child of an entity it animates that entity. Renders nothing. |
 | `<w-defs>` / `<w-animation name>` | — / `name` | Named animation definitions (groups of `<w-animate>`), inert. |
+| `<w-audio>` | `src` `from` `duration` `offset` (frames into source) `gain` | A sound clip on the timeline, inert. Participates in sequence time like visuals; `gain` animates via `<w-animate property="gain">` (local frames, replaces the base attribute). Full spec: docs/AUDIO.md. |
 
 All entities are absolutely positioned by `x`/`y`/`width`/`height` in composition pixels.
 
@@ -126,6 +127,17 @@ For DOM-rendered components use `HtmlRenderer` from `@superhq/webmotion/html-in-
 
 See [references/recipes.md](references/recipes.md) for complete, launch-quality scene patterns: staged typography, Ken Burns imagery, feature-line stagger, end cards, and pacing/easing guidance.
 
+### Sound
+
+```html
+<w-audio src="assets/score.wav" gain="0.9">
+  <w-animate property="gain" from="0.9" to="0" start="345" end="385"></w-animate>  <!-- outro fade -->
+</w-audio>
+<w-sequence from="72"><w-audio src="assets/whoosh.wav" gain="0.7"></w-audio></w-sequence>
+```
+
+Preview plays through a live `AudioContext` (frames pace off the audio clock); export mixes down sample-exact through an `OfflineAudioContext` and encodes AAC (Opus fallback) into the MP4. Sequences bound audio exactly like visuals.
+
 ## Pitfalls
 
 - Two tweens targeting the same property of the same element conflict across the whole timeline (clamped values still write; last one wins). For entrance + exit, put them on different nesting levels: wrapper `<w-el>` owns the exit, inner element owns the entrance. Opacity and transforms compose through nesting.
@@ -134,4 +146,5 @@ See [references/recipes.md](references/recipes.md) for complete, launch-quality 
 - Custom webfonts: ensure they are loaded (`document.fonts.ready`) before export starts; system font stacks are safest.
 - `<w-sequence>` controls `display`; do not also set `display` on it.
 - Export throws if no H.264 encoder is available; surface that error to the user (non-Chromium browsers).
+- Autoplay policy: audio preview needs a user gesture to start the `AudioContext`; `autoplay` compositions run silent until first interaction.
 - The composition scales to its container width; give the host element a real width.

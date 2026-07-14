@@ -1,6 +1,8 @@
 import { num } from "./parse.js";
 import { applyFrame } from "./registry.js";
 import { exportComposition, type ExportOptions } from "./export.js";
+import { collectAudioClips } from "../audio/schedule.js";
+import { loadClipBuffers, scheduleClips, type ScheduledAudio } from "../audio/engine.js";
 
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
 // base opacity; animated transforms and opacity are layered on per frame by the
@@ -86,8 +88,9 @@ class WSequence extends HTMLElement {
 }
 
 // Never rendered: <w-animate> declares one tween, <w-defs>/<w-animation> hold
-// named definitions. The frame walk reads their attributes and skips their
-// subtrees. See docs/MOTION.md.
+// named definitions, <w-audio> places a sound clip on the timeline. The frame
+// walk reads their attributes and skips their subtrees. See docs/MOTION.md and
+// docs/AUDIO.md.
 class WInert extends HTMLElement {
   connectedCallback(): void {
     this.style.display = "none";
@@ -96,6 +99,7 @@ class WInert extends HTMLElement {
 class WAnimate extends WInert {}
 class WDefs extends WInert {}
 class WAnimation extends WInert {}
+class WAudio extends WInert {}
 
 // The composition root. Owns the frame clock, sizes and scales the stage to fit,
 // and drives preview, seeking, and MP4 export.
@@ -113,6 +117,15 @@ class WComposition extends HTMLElement {
   private playing = false;
   private rafId = 0;
   private setupDone = false;
+  private playToken = 0;
+  private audioCtx: AudioContext | null = null;
+  private audioHandle: ScheduledAudio | null = null;
+  private clock: {
+    audioCtx: AudioContext | null;
+    t0: number;
+    wall0: number;
+    baseFrame: number;
+  } | null = null;
 
   constructor() {
     super();
@@ -195,29 +208,100 @@ class WComposition extends HTMLElement {
     this.currentFrame = clamped;
     this.renderFrameAt(clamped);
     this.dispatchEvent(new CustomEvent("w-seek", { detail: { frame: clamped } }));
+    // Scrubbing while playing restarts playback (and its audio) from here.
+    if (this.playing && clamped !== this.playbackFrame()) {
+      this.stopPlayback();
+      void this.startPlayback(clamped);
+    }
   }
 
   play(): void {
     if (this.playing) return;
     this.playing = true;
-    // performance.now paces preview playback only; each rendered frame is still
-    // a pure function of its integer frame index, so output stays deterministic.
-    const startTime = performance.now();
     const startFrame = this.currentFrame >= this.durationInFrames - 1 ? 0 : this.currentFrame;
-    const tick = (now: number): void => {
-      if (!this.playing) return;
-      const elapsed = (now - startTime) / 1000;
-      const f = (startFrame + Math.floor(elapsed * this.fps)) % this.durationInFrames;
-      this.seek(f);
+    void this.startPlayback(startFrame);
+  }
+
+  pause(): void {
+    this.playing = false;
+    this.stopPlayback();
+  }
+
+  // The frame the running playback clock currently points at, or -1 when the
+  // clock has not started.
+  private playbackFrame(): number {
+    if (!this.clock) return -1;
+    const elapsed = this.clock.audioCtx
+      ? Math.max(0, this.clock.audioCtx.currentTime - this.clock.t0)
+      : (performance.now() - this.clock.wall0) / 1000;
+    return this.clock.baseFrame + Math.floor(elapsed * this.fps);
+  }
+
+  // Preview playback. The clock paces which frame index is shown; each frame
+  // is still a pure function of its index, so output stays deterministic.
+  // With audio present, the audio clock is authoritative, the way any video
+  // player slaves pictures to sound.
+  private async startPlayback(startFrame: number): Promise<void> {
+    const token = ++this.playToken;
+    const clips = collectAudioClips(this.stage, this.fps, this.durationInFrames);
+
+    let audioCtx: AudioContext | null = null;
+    let handle: ScheduledAudio | null = null;
+    let t0 = 0;
+    if (clips.length > 0 && typeof AudioContext !== "undefined") {
+      this.audioCtx ??= new AudioContext();
+      audioCtx = this.audioCtx;
+      if (audioCtx.state === "suspended") {
+        // Needs a user gesture; if resume fails we play silent on wall clock.
+        try {
+          await audioCtx.resume();
+        } catch {
+          audioCtx = null;
+        }
+      }
+      if (audioCtx && audioCtx.state === "running") {
+        const buffers = await loadClipBuffers(audioCtx, clips);
+        if (!this.playing || token !== this.playToken) return;
+        t0 = audioCtx.currentTime + 0.05;
+        handle = scheduleClips(audioCtx, clips, buffers, this.fps, startFrame, t0);
+      } else {
+        audioCtx = null;
+      }
+    }
+    if (!this.playing || token !== this.playToken) {
+      handle?.stop();
+      return;
+    }
+
+    this.audioHandle = handle;
+    this.clock = { audioCtx, t0, wall0: performance.now(), baseFrame: startFrame };
+
+    const tick = (): void => {
+      if (!this.playing || token !== this.playToken) return;
+      const f = this.playbackFrame();
+      if (f >= this.durationInFrames) {
+        // Loop: restart clock and audio from the top.
+        this.stopPlayback();
+        void this.startPlayback(0);
+        return;
+      }
+      if (f !== this.currentFrame) {
+        this.currentFrame = f;
+        this.renderFrameAt(f);
+        this.dispatchEvent(new CustomEvent("w-seek", { detail: { frame: f } }));
+      }
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
   }
 
-  pause(): void {
-    this.playing = false;
+  private stopPlayback(): void {
+    this.playToken++;
     if (this.rafId) cancelAnimationFrame(this.rafId);
     this.rafId = 0;
+    this.audioHandle?.stop();
+    this.audioHandle = null;
+    this.clock = null;
   }
 
   async export(options: ExportOptions = {}): Promise<Blob> {
@@ -255,6 +339,7 @@ export function defineElements(): void {
     ["w-animate", WAnimate],
     ["w-defs", WDefs],
     ["w-animation", WAnimation],
+    ["w-audio", WAudio],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);

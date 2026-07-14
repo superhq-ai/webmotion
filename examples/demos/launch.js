@@ -36,6 +36,14 @@ const SCENE = `
   </w-animation>
 </w-defs>
 
+<!-- Soundtrack: the score under the whole film, a whoosh on the reveal. -->
+<w-audio src="assets/score.wav" gain="0.9">
+  <w-animate property="gain" from="0.9" to="0" start="345" end="385"></w-animate>
+</w-audio>
+<w-sequence from="72">
+  <w-audio src="assets/whoosh.wav" gain="0.7"></w-audio>
+</w-sequence>
+
 <w-rect x="0" y="0" width="1280" height="720" fill="#000"></w-rect>
 
 <!-- Beat 1: Introducing. -->

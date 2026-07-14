@@ -116,9 +116,15 @@ function componentAttrs(el: HTMLElement): string[] {
   return names;
 }
 
-// Behavior and definition nodes: never rendered, never walked as entities.
+// Behavior, definition, and audio nodes: never rendered, never walked as
+// entities. <w-audio> tweens (gain) belong to the audio engine, not the walk.
 function isInert(tagName: string): boolean {
-  return tagName === "W-ANIMATE" || tagName === "W-DEFS" || tagName === "W-ANIMATION";
+  return (
+    tagName === "W-ANIMATE" ||
+    tagName === "W-DEFS" ||
+    tagName === "W-ANIMATION" ||
+    tagName === "W-AUDIO"
+  );
 }
 
 // Resolve a <w-animation name> for `el` by walking up the tree: at each
@@ -144,7 +150,7 @@ function resolveAnimation(el: Element, name: string): Element | null {
 // The <w-animate> elements that animate `el` this frame, in application order:
 // each `motion` name left to right (its tweens in document order), then the
 // entity's inline <w-animate> children. Last write to a property wins.
-function gatherTweens(el: HTMLElement): Element[] {
+export function gatherTweens(el: HTMLElement): Element[] {
   const out: Element[] = [];
   const motion = el.getAttribute("motion");
   if (motion) {

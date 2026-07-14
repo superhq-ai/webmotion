@@ -187,6 +187,7 @@ export function mountPlayer(mountEl, demo) {
     setPlaying(false);
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
+    if (created.element) created.element.pause();
   }
 
   // Render one frame fully before scheduling the next. Rasterization is async
@@ -204,6 +205,14 @@ export function mountPlayer(mountEl, demo) {
     rafId = requestAnimationFrame(tick);
   }
 
+  // Element demos drive their own playback clock (audio-aware); the transport
+  // follows along through w-seek events.
+  if (created.element) {
+    created.element.addEventListener("w-seek", (e) => {
+      if (!disposed) updateTransport(e.detail.frame);
+    });
+  }
+
   seek.addEventListener("input", () => {
     stop();
     drawFrame(Number(seek.value));
@@ -215,6 +224,12 @@ export function mountPlayer(mountEl, demo) {
       return;
     }
     setPlaying(true);
+    if (created.element) {
+      const el = created.element;
+      if (Number(seek.value) >= lastFrame) el.seek(0);
+      el.play();
+      return;
+    }
     rafFrame = Number(seek.value) >= lastFrame ? 0 : Number(seek.value);
     tick();
   });

@@ -4,6 +4,14 @@ import { Layer } from "../runtime/layer.js";
 import { Runtime } from "../runtime/runtime.js";
 import { exportVideo } from "../export/exporter.js";
 import { HtmlRenderer } from "../html-in-canvas/index.js";
+import { collectAudioClips } from "../audio/schedule.js";
+import {
+  AUDIO_CHANNELS,
+  AUDIO_SAMPLE_RATE,
+  encodeAudioIntoMuxer,
+  negotiateAudioCodec,
+  renderAudioMix,
+} from "../audio/export.js";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 
 // What exportComposition needs from a composition to render it to video: its
@@ -78,13 +86,34 @@ export async function exportComposition(
     layers: [new Layer({ component: driver })],
   });
 
+  // Audio: the same clips the preview plays, mixed down sample-exact through
+  // an OfflineAudioContext and encoded into the container's audio track.
+  const clips = collectAudioClips(target.stage, target.fps, target.durationInFrames);
+  const audioCodec = clips.length > 0 ? await negotiateAudioCodec() : null;
+  if (clips.length > 0 && !audioCodec) {
+    console.warn("[webmotion] no supported audio encoder; exporting silent video");
+  }
+
   const muxer = new Muxer({
     target: new ArrayBufferTarget(),
     video: { codec: "avc", width: target.width, height: target.height },
+    ...(audioCodec
+      ? {
+          audio: {
+            codec: audioCodec.muxCodec,
+            sampleRate: AUDIO_SAMPLE_RATE,
+            numberOfChannels: AUDIO_CHANNELS,
+          },
+        }
+      : {}),
     fastStart: "in-memory",
   });
 
   try {
+    if (audioCodec) {
+      const mix = await renderAudioMix(clips, target.fps, target.durationInFrames);
+      await encodeAudioIntoMuxer(mix, audioCodec, muxer);
+    }
     await exportVideo(runtime, {
       muxer,
       codec,

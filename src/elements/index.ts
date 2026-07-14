@@ -15,6 +15,7 @@ export {
   type FrameContext,
 } from "./registry.js";
 export { readTween, sampleTween, type TweenData } from "./tween.js";
+export { collectAudioClips, type AudioClip } from "../audio/schedule.js";
 export { exportComposition, type ExportTarget, type ExportOptions } from "./export.js";
 export { parseProps, num, splitUnit, resolveEasing } from "./parse.js";
 
