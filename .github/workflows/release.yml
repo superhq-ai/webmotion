@@ -1,0 +1,38 @@
+# Publishes @superhq/webmotion to npm via trusted publishing (OIDC) on version
+# tags. No npm token anywhere: the job authenticates with a workflow identity,
+# which also signs provenance attestations. Requirements baked in below:
+# GitHub-hosted runner, npm >= 11.5.1, Node >= 22.14.0.
+#
+# One-time setup (owner, after the manual first publish of the package):
+#   npmjs.com > @superhq/webmotion > Settings > Publishing access
+#   -> Trusted publisher: GitHub Actions, repo superhq-ai/webmotion,
+#      workflow release.yml -> then restrict publishing to the trusted publisher.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  id-token: write # OIDC token for npm trusted publishing
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # setup-node's bundled npm can lag behind the 11.5.1 OIDC minimum.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - run: npm publish
