@@ -108,7 +108,7 @@ const SCENE = `
   <w-el motion="beat-in" x="0" y="0" width="1280" height="720"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
     <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"
+      <path d="M4.5 20L7.5 4M10.5 20L13.5 4M16.5 20L19.5 4"
             stroke="#f5f6f8" stroke-width="2.4" stroke-linecap="round"/>
     </svg>
     <div class="wordmark">webmotion</div>
