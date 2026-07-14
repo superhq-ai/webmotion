@@ -91,8 +91,25 @@ export function mountPlayer(mountEl, demo) {
   `;
 
   if (demo.source) {
-    // textContent, so the markup shows as code instead of being parsed.
+    // textContent, so the markup shows as code instead of being parsed. Shiki
+    // replaces it with a highlighted version when the panel first opens.
     mountEl.querySelector(".source code").textContent = demo.source;
+    const panel = mountEl.querySelector(".source");
+    let highlighted = false;
+    panel.addEventListener("toggle", async () => {
+      if (!panel.open || highlighted) return;
+      highlighted = true;
+      try {
+        const { codeToHtml } = await import("shiki/bundle/web");
+        const html = await codeToHtml(demo.source.trim(), {
+          lang: "html",
+          theme: "github-light",
+        });
+        if (!disposed) panel.querySelector("pre").outerHTML = html;
+      } catch (err) {
+        console.warn("source highlighting unavailable", err);
+      }
+    });
   }
 
   const stageHost = mountEl.querySelector(".stage");
