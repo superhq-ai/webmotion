@@ -54,7 +54,7 @@ export class Runtime {
       if (!layer.isMounted) {
         await layer.component.mount({
           composition: this.composition,
-          container: this.container,
+          container: this.renderer.container ?? this.container,
         });
         layer.markMounted();
       }
@@ -69,6 +69,8 @@ export class Runtime {
       };
       await layer.component.renderFrame(this.renderer.makeContext(base));
     }
+
+    if (this.renderer.finishFrame) await this.renderer.finishFrame(frame);
 
     return frame;
   }

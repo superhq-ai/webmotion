@@ -3,6 +3,7 @@ import { Composition } from "../core/composition.js";
 import type { RenderContext, WebMotionComponent } from "../core/component.js";
 import { Sequence } from "../core/sequence.js";
 import { NullRenderer } from "../render/null-renderer.js";
+import type { Renderer } from "../render/renderer.js";
 import { Layer } from "./layer.js";
 import { Runtime } from "./runtime.js";
 
@@ -26,6 +27,33 @@ class RecordingComponent implements WebMotionComponent {
   destroy(): void {
     this.destroys++;
   }
+}
+
+class RecordingRenderer implements Renderer {
+  readonly width: number;
+  readonly height: number;
+  readonly order: string[];
+
+  constructor(width: number, height: number, order: string[]) {
+    this.width = width;
+    this.height = height;
+    this.order = order;
+  }
+
+  async init(): Promise<void> {}
+  beginFrame(globalFrame: number): void {
+    this.order.push(`begin:${globalFrame}`);
+  }
+  makeContext(base: RenderContext): RenderContext {
+    return base;
+  }
+  async finishFrame(globalFrame: number): Promise<void> {
+    this.order.push(`finish:${globalFrame}`);
+  }
+  capture(): VideoFrame | null {
+    return null;
+  }
+  destroy(): void {}
 }
 
 function makeRuntime(layers: Layer[], durationInFrames = 120): { runtime: Runtime } {
@@ -96,5 +124,29 @@ describe("Runtime.renderFrame", () => {
 
     const f = await runtime.renderFrame(999);
     expect(f).toBe(9); // last frame of a 10-frame composition
+  });
+
+  it("calls renderer.finishFrame after all active layers render", async () => {
+    const order: string[] = [];
+    const mk = (name: string): WebMotionComponent => ({
+      mount() {},
+      renderFrame() {
+        order.push(name);
+      },
+      destroy() {},
+    });
+    const composition = new Composition({ width: 100, height: 100, fps: 30, durationInFrames: 120 });
+    const runtime = new Runtime({
+      composition,
+      renderer: new RecordingRenderer(100, 100, order),
+      layers: [
+        new Layer({ component: mk("layer-a") }),
+        new Layer({ component: mk("layer-b") }),
+      ],
+    });
+
+    await runtime.renderFrame(5);
+
+    expect(order).toEqual(["begin:5", "layer-a", "layer-b", "finish:5"]);
   });
 });

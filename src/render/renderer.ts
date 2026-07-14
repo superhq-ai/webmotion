@@ -6,6 +6,7 @@ import type { RenderContext } from "../core/component.js";
 export interface Renderer<TContext extends RenderContext = RenderContext> {
   readonly width: number;
   readonly height: number;
+  readonly container?: HTMLElement;
 
   /** One-time async setup (allocate the surface, warm up GL, etc.). */
   init(): Promise<void>;
@@ -14,6 +15,12 @@ export interface Renderer<TContext extends RenderContext = RenderContext> {
    * Prepare the surface for a new frame, usually by clearing it.
    */
   beginFrame(globalFrame: number): void;
+
+  /**
+   * Optional async end-of-frame hook for backends that need to finalize
+   * rasterization before capture.
+   */
+  finishFrame?(globalFrame: number): void | Promise<void>;
 
   /**
    * Build the backend-specific render context for a component.

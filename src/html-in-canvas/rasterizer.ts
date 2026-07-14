@@ -1,0 +1,722 @@
+// DomRasterizer turns a live DOM subtree into a raster canvas by serializing a
+// clone into an SVG <foreignObject> and drawing that SVG through an image. It is
+// the deterministic core the HtmlRenderer builds on. The approach is derived
+// from repalash's three-html-render (MIT); see CREDITS.md.
+import { createImage, css, embedUrlRefs } from "./dom-image.js";
+import { syncFormState } from "./form-state.js";
+
+const debugHIC =
+  typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("debugPolyfillHIC");
+const CARET_BLINK_MS = 500;
+
+interface RasterizerEntry {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  cssW: number;
+  cssH: number;
+  lastSvg?: string;
+}
+
+export class DomRasterizer {
+  pixelRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
+  private pageStyles = "";
+  private entries = new Map<HTMLElement, RasterizerEntry>();
+  private pageStylesCssPromise: Promise<string> | null = null;
+
+  // Extra CSS that only applies inside the rasterized SVG. It restores scroll
+  // offsets and animation delays that the clone cannot express on its own.
+  readonly svgOnlyStyles = css`
+[style*="--scroll-left"], [style*="--scroll-top"] {
+    overflow: hidden !important;
+}
+[style*="--animation-delay"] {
+    animation-delay: var(--animation-delay, 0s) !important;
+}
+[style*="--scroll-left"] > *, [style*="--scroll-top"] > * {
+    transform: translate(var(--scroll-left, 0), var(--scroll-top, 0));
+}
+`;
+
+  // Rasterize a node into a canvas sized to its CSS box (times the device pixel
+  // ratio). The canvas is cached per node and reused across frames; an unchanged
+  // SVG short circuits the redraw.
+  async rasterize(node: HTMLElement): Promise<HTMLCanvasElement> {
+    const cssW = node.clientWidth || node.offsetWidth;
+    const cssH = node.clientHeight || node.offsetHeight;
+    if (cssW === 0 || cssH === 0) {
+      const existing = this.entries.get(node);
+      if (existing) return existing.canvas;
+      return this.ensureEntry(node, 1, 1).canvas;
+    }
+
+    const entry = this.ensureEntry(node, cssW, cssH);
+    const dpr = Math.max(1, this.pixelRatio);
+    const pxW = entry.canvas.width;
+    const pxH = entry.canvas.height;
+    const svg = await this.buildSvg(node, cssW, cssH, dpr);
+
+    if (svg === entry.lastSvg) {
+      if (debugHIC) console.log("[html-in-canvas] rasterization skipped (unchanged)");
+      return entry.canvas;
+    }
+    if (debugHIC && entry.lastSvg) {
+      logSvgDiff(entry.lastSvg, svg);
+    }
+    entry.lastSvg = svg;
+
+    const image = await loadSvgAsImage(svg, pxW, pxH);
+    entry.context.clearRect(0, 0, pxW, pxH);
+    entry.context.drawImage(image, 0, 0, pxW, pxH);
+    return entry.canvas;
+  }
+
+  getCanvas(node: HTMLElement): HTMLCanvasElement | null {
+    return this.entries.get(node)?.canvas ?? null;
+  }
+
+  getCssSize(node: HTMLElement): { width: number; height: number } | null {
+    const e = this.entries.get(node);
+    return e ? { width: e.cssW, height: e.cssH } : null;
+  }
+
+  // Extra CSS to fold into every rasterized SVG, on top of the page stylesheets.
+  setPageStyles(styles: string): void {
+    this.pageStyles = styles;
+  }
+
+  async getPageStylesCss(): Promise<string> {
+    if (!this.pageStylesCssPromise) {
+      const promise = collectAndInlinePageStyles();
+      this.pageStylesCssPromise = promise;
+      promise.catch(() => {
+        if (this.pageStylesCssPromise === promise) {
+          this.pageStylesCssPromise = null;
+        }
+      });
+    }
+    return this.pageStylesCssPromise;
+  }
+
+  invalidatePageStylesCss(): void {
+    this.pageStylesCssPromise = null;
+  }
+
+  // Drop all cached canvases and shared state. Call when the rasterizer is done.
+  dispose(): void {
+    this.entries.clear();
+    this.pageStylesCssPromise = null;
+    dataUrlCache.clear();
+    if (mirrorDiv) {
+      mirrorDiv.remove();
+      mirrorDiv = null;
+    }
+  }
+
+  // Copy state that a plain clone loses (scroll, running animations, caret and
+  // selection) onto the cloned tree so the raster matches the live element.
+  captureDynamicStateOnClone(src: HTMLElement, dst: HTMLElement): void {
+    const srcAll = [src, ...src.querySelectorAll<HTMLElement>("*")];
+    const dstAll = [dst, ...dst.querySelectorAll<HTMLElement>("*")];
+    if (srcAll.length !== dstAll.length) return;
+    for (let i = 0; i < srcAll.length; i++) {
+      const s = srcAll[i];
+      const d = dstAll[i];
+      if (!s || !d) continue;
+      writeDynamicStateInline(s, d);
+    }
+    injectCaretAndSelection(src, dst);
+    injectPageSelection(src, dst);
+  }
+
+  private ensureEntry(node: HTMLElement, cssW: number, cssH: number): RasterizerEntry {
+    const dpr = Math.max(1, this.pixelRatio);
+    const width = Math.max(1, Math.ceil(cssW * dpr));
+    const height = Math.max(1, Math.ceil(cssH * dpr));
+    let entry = this.entries.get(node);
+    if (!entry) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("DomRasterizer: failed to acquire a 2D context");
+      entry = { canvas, context, cssW, cssH };
+      this.entries.set(node, entry);
+    } else {
+      if (entry.canvas.width !== width || entry.canvas.height !== height) {
+        entry.canvas.width = width;
+        entry.canvas.height = height;
+      }
+      entry.cssW = cssW;
+      entry.cssH = cssH;
+    }
+    return entry;
+  }
+
+  private async buildSvg(
+    node: HTMLElement,
+    cssW: number,
+    cssH: number,
+    _dpr = 1,
+  ): Promise<string> {
+    const clone = await prepareClone(node);
+    this.captureDynamicStateOnClone(node, clone);
+    const innerXml = wrapClone(node, new XMLSerializer().serializeToString(clone));
+
+    const pageStylesCss = await this.getPageStylesCss();
+    const style =
+      BASELINE_CSS + "\n" + pageStylesCss + "\n" + this.pageStyles + "\n" + this.svgOnlyStyles;
+
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg"` +
+      ` width="${cssW}" height="${cssH}" viewBox="0 0 ${cssW} ${cssH}">` +
+      `<style><![CDATA[${style.replace(/]]>/g, "]]]]><![CDATA[>")}]]></style>` +
+      `<foreignObject x="0" y="0" width="100%" height="100%">${innerXml}</foreignObject>` +
+      `</svg>`;
+
+    if (debugHIC) renderSvgDebugOverlay(svg);
+    return svg;
+  }
+}
+
+// Show the generated SVG in a translucent on-page overlay aligned with the first
+// canvas, so the rasterized output can be compared against the live DOM.
+function renderSvgDebugOverlay(svg: string): void {
+  let dbg = document.getElementById("__hic-svg-debug__") as HTMLDivElement | null;
+  if (!dbg) {
+    dbg = document.createElement("div");
+    dbg.id = "__hic-svg-debug__";
+    dbg.style.cssText =
+      "position:absolute;z-index:99999;pointer-events:none;opacity:0.3;box-sizing:border-box;margin:0;padding:0;border:none;overflow:hidden;";
+    document.body.appendChild(dbg);
+  }
+  const canvasEl = document.querySelector("canvas");
+  if (canvasEl) {
+    const cr = canvasEl.getBoundingClientRect();
+    dbg.style.left = cr.left + window.scrollX + "px";
+    dbg.style.top = cr.top + window.scrollY + "px";
+    dbg.style.width = cr.width + "px";
+    dbg.style.height = cr.height + "px";
+  }
+  if (!dbg.innerHTML) {
+    dbg.innerHTML = svg;
+    const svgEl = dbg.querySelector("svg");
+    if (svgEl) {
+      svgEl.style.width = "100%";
+      svgEl.style.height = "100%";
+    }
+  }
+}
+
+function logSvgDiff(oldSvg: string, newSvg: string): void {
+  const oldLines = oldSvg.split("<");
+  const newLines = newSvg.split("<");
+  const diffs: string[] = [];
+  const len = Math.max(oldLines.length, newLines.length);
+  for (let i = 0; i < len; i++) {
+    if (oldLines[i] !== newLines[i]) {
+      diffs.push(`  - ${(oldLines[i] || "").slice(0, 120)}`);
+      diffs.push(`  + ${(newLines[i] || "").slice(0, 120)}`);
+    }
+    if (diffs.length > 20) {
+      diffs.push("  ...");
+      break;
+    }
+  }
+  console.log("[html-in-canvas] SVG changed:\n" + diffs.join("\n"));
+}
+
+async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
+  const clone = node.cloneNode(true) as HTMLElement;
+  syncFormState(node, clone);
+  freezeResolvedTextMetrics(node, clone);
+  clone.style.removeProperty("transform");
+  clone.style.opacity = "1";
+  clone.style.visibility = "visible";
+  await inlineExternalImages(clone);
+  clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  return clone;
+}
+
+function wrapClone(node: HTMLElement, cloneXml: string): string {
+  const parentEl = node.parentElement;
+  const parentClass = parentEl?.getAttribute("class") || "";
+  const parentW = parentEl?.clientWidth || node.clientWidth || node.offsetWidth;
+  const parentH = parentEl?.clientHeight || node.clientHeight || node.offsetHeight;
+
+  const classAttr = parentClass ? ` class="${escapeXmlAttr(parentClass)}"` : "";
+  const ancestorOpen =
+    `<div xmlns="http://www.w3.org/1999/xhtml"${classAttr}` +
+    ` style="position:relative;width:${parentW}px;height:${parentH}px;margin:0;padding:0;">`;
+  const ancestorClose = "</div>";
+
+  return (
+    `<html xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0;background:transparent !important;">` +
+    `<body style="margin:0;padding:0;background:transparent !important;">` +
+    ancestorOpen +
+    cloneXml +
+    ancestorClose +
+    `</body></html>`
+  );
+}
+
+async function loadSvgAsImage(
+  svg: string,
+  cssW: number,
+  cssH: number,
+): Promise<HTMLImageElement> {
+  const dataUrl = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  try {
+    return await createImage(dataUrl);
+  } catch (e) {
+    const type =
+      e && typeof e === "object" && "type" in e ? String((e as { type: unknown }).type) : typeof e;
+    const head = svg.slice(0, 300).replace(/\s+/g, " ");
+    throw new Error(
+      `DomRasterizer: SVG image failed to load (${type}). ` +
+        `cssW=${cssW}, cssH=${cssH}, svg.length=${svg.length}. svg head: ${head}...`,
+      { cause: e },
+    );
+  }
+}
+
+async function collectAndInlinePageStyles(): Promise<string> {
+  const sheets: string[] = [];
+
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const cssRules = Array.from(sheet.cssRules || []);
+      sheets.push(cssRules.map((r) => r.cssText).join("\n"));
+    } catch {
+      if (!sheet.href) continue;
+      try {
+        const res = await fetch(sheet.href);
+        if (res.ok) sheets.push(await res.text());
+      } catch (e) {
+        console.warn("[html-in-canvas] failed to fetch stylesheet", sheet.href, e);
+      }
+    }
+  }
+
+  if (sheets.length === 0) return "";
+
+  let combined: string;
+  try {
+    combined = await embedUrlRefs(sheets.join("\n"), async (url) => {
+      // W3C namespace URIs are identifiers, not fetchable resources.
+      if (url.startsWith("http://www.w3.org/")) return url;
+      try {
+        return await fetchAsDataUrl(url);
+      } catch {
+        return url;
+      }
+    });
+  } catch (e) {
+    console.warn("[html-in-canvas] URL embedding failed", e);
+    combined = sheets.join("\n");
+  }
+
+  const pseudoRules = rewritePseudoClasses(combined);
+  return pseudoRules ? combined + "\n" + pseudoRules : combined;
+}
+
+const BASELINE_CSS = `
+a { color: -webkit-link; text-decoration: underline; cursor: pointer; }
+*.pseudo-focus-visible { outline: auto 1px -webkit-focus-ring-color; }
+input.pseudo-focus-visible, textarea.pseudo-focus-visible, select.pseudo-focus-visible { outline-offset: 0; }
+input[type="checkbox"].pseudo-focus-visible, input[type="radio"].pseudo-focus-visible { outline-offset: 2px; }
+a.pseudo-focus-visible { outline-offset: 1px; }
+@media (prefers-color-scheme: dark) {
+    button.pseudo-hover, select.pseudo-hover,
+    input.pseudo-hover, textarea.pseudo-hover {
+        filter: brightness(1.1);
+    }
+    button.pseudo-active, select.pseudo-active,
+    input.pseudo-active, textarea.pseudo-active {
+        filter: brightness(0.9);
+    }
+}
+@media (prefers-color-scheme: light) {
+    button.pseudo-hover, select.pseudo-hover,
+    input.pseudo-hover, textarea.pseudo-hover {
+        filter: brightness(0.9);
+    }
+    button.pseudo-active, select.pseudo-active,
+    input.pseudo-active, textarea.pseudo-active {
+        filter: brightness(1.1);
+    }
+}
+`;
+
+const PSEUDO_RE = /:(?:hover|focus-visible|focus-within|focus(?!-)|active)\b/g;
+const PSEUDO_RE_TEST = /:(?:hover|focus-visible|focus-within|focus(?!-)|active)\b/;
+
+// SVG cannot honor live :hover/:focus/:active state, so rewrite those rules to a
+// .pseudo-* class form that the clone can carry as a plain class name.
+function rewritePseudoClasses(cssText: string): string {
+  let sheet: CSSStyleSheet;
+  try {
+    sheet = new CSSStyleSheet();
+    sheet.replaceSync(cssText);
+  } catch {
+    return "";
+  }
+  const out: string[] = [];
+  collectRewrittenRules(sheet.cssRules, out);
+  return out.join("\n");
+}
+
+function collectRewrittenRules(rules: CSSRuleList, out: string[]): void {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    if (!rule) continue;
+    if (rule instanceof CSSStyleRule) {
+      if (PSEUDO_RE_TEST.test(rule.selectorText)) {
+        const newSelector = rule.selectorText.replace(PSEUDO_RE, (m) => ".pseudo-" + m.slice(1));
+        out.push(`${newSelector} { ${rule.style.cssText} }`);
+      }
+    } else if ("cssRules" in rule) {
+      const group = rule as CSSGroupingRule;
+      const inner: string[] = [];
+      collectRewrittenRules(group.cssRules, inner);
+      if (inner.length) {
+        let condText = "";
+        if (rule instanceof CSSMediaRule) condText = `@media ${rule.conditionText}`;
+        else if (rule instanceof CSSSupportsRule) condText = `@supports ${rule.conditionText}`;
+        else condText = rule.cssText.split("{")[0]?.trim() ?? "";
+        if (condText) out.push(`${condText} {\n${inner.join("\n")}\n}`);
+      }
+    }
+  }
+}
+
+function escapeXmlAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function writeDynamicStateInline(src: HTMLElement, dst: HTMLElement): void {
+  if (src.scrollLeft !== 0 || src.scrollTop !== 0) {
+    dst.style.setProperty("--scroll-left", -src.scrollLeft + "px");
+    dst.style.setProperty("--scroll-top", -src.scrollTop + "px");
+  }
+
+  const animations = src.getAnimations();
+  if (animations.length !== 1) return;
+  const anim = animations[0];
+  if (!anim) return;
+  const timeMs = typeof anim.currentTime === "number" ? anim.currentTime : 0;
+  const delayStr = getComputedStyle(src).animationDelay;
+  const delaySec = delayStr.endsWith("ms") ? parseFloat(delayStr) / 1000 : parseFloat(delayStr);
+  const adjustedDelaySec = (delaySec || 0) - timeMs / 1000;
+  dst.style.setProperty("--animation-delay", adjustedDelaySec + "s");
+}
+
+const MIRROR_PROPS = [
+  "fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant",
+  "lineHeight", "letterSpacing", "wordSpacing", "textIndent", "textTransform",
+  "whiteSpace", "wordWrap", "overflowWrap", "wordBreak",
+  "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+  "boxSizing", "width", "direction", "textAlign",
+] as const;
+
+let mirrorDiv: HTMLDivElement | null = null;
+
+// Measure the pixel position of a character index within an input or textarea by
+// laying the same text out in a hidden mirror div and reading a marker's offset.
+function measureCharPosition(
+  el: HTMLInputElement | HTMLTextAreaElement,
+  charIndex: number,
+): { x: number; y: number; height: number } {
+  if (!mirrorDiv) {
+    mirrorDiv = document.createElement("div");
+    mirrorDiv.style.cssText =
+      "position:absolute;left:-9999px;top:-9999px;visibility:hidden;overflow:hidden;";
+    document.body.appendChild(mirrorDiv);
+  }
+
+  const cs = getComputedStyle(el);
+  const isInput = el instanceof HTMLInputElement;
+
+  for (const prop of MIRROR_PROPS) mirrorDiv.style[prop] = cs[prop];
+  mirrorDiv.style.whiteSpace = isInput ? "pre" : cs.whiteSpace;
+  mirrorDiv.style.height = "auto";
+  mirrorDiv.style.overflowY = "hidden";
+
+  const text = el.value;
+  const before = text.substring(0, charIndex);
+
+  mirrorDiv.textContent = "";
+  const textNode = document.createTextNode(before);
+  const marker = document.createElement("span");
+  marker.textContent = "|";
+  mirrorDiv.appendChild(textNode);
+  mirrorDiv.appendChild(marker);
+  // Trailing text keeps the wrapping context correct around the marker.
+  mirrorDiv.appendChild(document.createTextNode(text.substring(charIndex) || "."));
+
+  const fontSize = parseFloat(cs.fontSize);
+  const lhParsed = parseFloat(cs.lineHeight);
+  const lineHeight = isNaN(lhParsed)
+    ? fontSize * 1.2
+    : cs.lineHeight.endsWith("px")
+      ? lhParsed
+      : lhParsed * fontSize;
+
+  return { x: marker.offsetLeft, y: marker.offsetTop, height: lineHeight };
+}
+
+function injectCaretAndSelection(rootSrc: HTMLElement, rootDst: HTMLElement): void {
+  const active = document.activeElement;
+  if (!active) return;
+
+  let inputEl: HTMLInputElement | HTMLTextAreaElement;
+  if (active instanceof HTMLInputElement) {
+    const t = active.type;
+    if (t !== "text" && t !== "search" && t !== "url" && t !== "tel" && t !== "password" && t !== "")
+      return;
+    inputEl = active;
+  } else if (active instanceof HTMLTextAreaElement) {
+    inputEl = active;
+  } else {
+    return;
+  }
+
+  if (!rootSrc.contains(inputEl)) return;
+  const selStart = inputEl.selectionStart;
+  const selEnd = inputEl.selectionEnd;
+  if (selStart === null || selEnd === null) return;
+
+  const cs = getComputedStyle(inputEl);
+  const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
+  const borderTop = parseFloat(cs.borderTopWidth) || 0;
+
+  // Walk the offsetParent chain to get the input position in layout space
+  // relative to rootSrc.
+  let offsetX = 0;
+  let offsetY = 0;
+  let el: HTMLElement | null = inputEl;
+  while (el && el !== rootSrc) {
+    offsetX += el.offsetLeft;
+    offsetY += el.offsetTop;
+    el = el.offsetParent as HTMLElement | null;
+  }
+
+  const contentOriginX = offsetX + borderLeft;
+  const contentOriginY = offsetY + borderTop;
+
+  const clipLeft = contentOriginX;
+  const clipRight = clipLeft + inputEl.clientWidth;
+  const clipTop = contentOriginY;
+  const clipBottom = clipTop + inputEl.clientHeight;
+
+  if (selStart === selEnd) {
+    const pos = measureCharPosition(inputEl, selStart);
+    const caretX = contentOriginX + pos.x - inputEl.scrollLeft;
+    const caretY = contentOriginY + pos.y - inputEl.scrollTop;
+
+    const caretVisible = Math.floor(Date.now() / CARET_BLINK_MS) % 2 === 0;
+    if (
+      caretVisible &&
+      caretX >= clipLeft &&
+      caretX <= clipRight &&
+      caretY >= clipTop &&
+      caretY + pos.height <= clipBottom
+    ) {
+      const caret = document.createElement("div");
+      caret.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+      caret.style.cssText =
+        `position:absolute;pointer-events:none;` +
+        `left:${caretX}px;top:${caretY}px;` +
+        `width:2px;height:${pos.height}px;` +
+        `background:currentColor;`;
+      rootDst.appendChild(caret);
+    }
+  } else {
+    const startPos = measureCharPosition(inputEl, selStart);
+    const endPos = measureCharPosition(inputEl, selEnd);
+
+    const lineHeight = startPos.height;
+    const scrollL = inputEl.scrollLeft;
+    const scrollT = inputEl.scrollTop;
+
+    if (startPos.y === endPos.y) {
+      const left = Math.max(contentOriginX + startPos.x - scrollL, clipLeft);
+      const right = Math.min(contentOriginX + endPos.x - scrollL, clipRight);
+      const top = contentOriginY + startPos.y - scrollT;
+      if (right > left && top >= clipTop && top + lineHeight <= clipBottom) {
+        appendHighlight(rootDst, left, top, right - left, lineHeight);
+      }
+    } else {
+      // A selection spanning multiple lines: first line, middle lines, last line.
+      const lines: { left: number; right: number; top: number }[] = [];
+      lines.push({
+        left: contentOriginX + startPos.x - scrollL,
+        right: clipRight,
+        top: contentOriginY + startPos.y - scrollT,
+      });
+      for (let y = startPos.y + lineHeight; y < endPos.y; y += lineHeight) {
+        lines.push({ left: clipLeft, right: clipRight, top: contentOriginY + y - scrollT });
+      }
+      lines.push({
+        left: clipLeft,
+        right: contentOriginX + endPos.x - scrollL,
+        top: contentOriginY + endPos.y - scrollT,
+      });
+
+      for (const line of lines) {
+        const left = Math.max(line.left, clipLeft);
+        const right = Math.min(line.right, clipRight);
+        if (right <= left) continue;
+        if (line.top + lineHeight < clipTop || line.top > clipBottom) continue;
+        appendHighlight(rootDst, left, line.top, right - left, lineHeight);
+      }
+    }
+  }
+}
+
+function injectPageSelection(rootSrc: HTMLElement, rootDst: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  if (!rootSrc.contains(range.startContainer) && !rootSrc.contains(range.endContainer)) return;
+
+  // Drop any 3D transform so getClientRects returns flat layout-space
+  // coordinates rather than perspective-distorted ones, then restore it.
+  const savedTransform = rootSrc.style.transform;
+  const savedTransformOrigin = rootSrc.style.transformOrigin;
+  rootSrc.style.transform = "none";
+  rootSrc.style.transformOrigin = "";
+
+  const rootRect = rootSrc.getBoundingClientRect();
+  const scaleX = rootSrc.offsetWidth / rootRect.width;
+  const scaleY = rootSrc.offsetHeight / rootRect.height;
+
+  const clipRight = rootSrc.offsetWidth;
+  const clipBottom = rootSrc.offsetHeight;
+
+  const rects = range.getClientRects();
+  const rectData: { left: number; top: number; width: number; height: number }[] = [];
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i];
+    if (!r) continue;
+    rectData.push({
+      left: (r.left - rootRect.left) * scaleX + rootSrc.scrollLeft,
+      top: (r.top - rootRect.top) * scaleY + rootSrc.scrollTop,
+      width: r.width * scaleX,
+      height: r.height * scaleY,
+    });
+  }
+
+  rootSrc.style.transform = savedTransform;
+  rootSrc.style.transformOrigin = savedTransformOrigin;
+
+  for (const rd of rectData) {
+    let { left, top, width, height } = rd;
+
+    if (left < 0) {
+      width += left;
+      left = 0;
+    }
+    if (top < 0) {
+      height += top;
+      top = 0;
+    }
+    if (left + width > clipRight) width = clipRight - left;
+    if (top + height > clipBottom) height = clipBottom - top;
+    if (width <= 0 || height <= 0) continue;
+
+    appendHighlight(rootDst, left, top, width, height);
+  }
+}
+
+function appendHighlight(
+  root: HTMLElement,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): void {
+  const highlight = document.createElement("div");
+  highlight.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  highlight.style.cssText =
+    `position:absolute;pointer-events:none;` +
+    `left:${left}px;top:${top}px;` +
+    `width:${width}px;height:${height}px;` +
+    `background:Highlight;opacity:0.5;`;
+  root.appendChild(highlight);
+}
+
+const VERTICAL_PROPS = [
+  "fontSize", "lineHeight", "height", "minHeight", "maxHeight",
+  "marginTop", "marginBottom", "paddingTop", "paddingBottom",
+  "borderTopWidth", "borderBottomWidth",
+] as const;
+
+// Copy vertical metrics from the live element onto the clone, flooring
+// subpixel values so wrapped text lands on the same lines after rasterization.
+function freezeResolvedTextMetrics(src: HTMLElement, dst: HTMLElement): void {
+  const srcAll = [src, ...src.querySelectorAll<HTMLElement>("*")];
+  const dstAll = [dst, ...dst.querySelectorAll<HTMLElement>("*")];
+  if (srcAll.length !== dstAll.length) return;
+  for (let i = 0; i < srcAll.length; i++) {
+    const s = srcAll[i];
+    const d = dstAll[i];
+    if (!s || !d) continue;
+    const cs = getComputedStyle(s);
+    for (const prop of VERTICAL_PROPS) {
+      const v = parseFloat(cs[prop]);
+      if (isNaN(v)) continue;
+      d.style[prop] = v % 1 !== 0 ? Math.floor(v) + "px" : cs[prop];
+    }
+  }
+}
+
+const dataUrlCache = new Map<string, Promise<string>>();
+
+function fetchAsDataUrl(url: string): Promise<string> {
+  const cached = dataUrlCache.get(url);
+  if (cached) return cached;
+  const p = fetch(url)
+    .then((r) => {
+      if (!r.ok) throw new Error(`fetch ${url} status ${r.status}`);
+      return r.blob();
+    })
+    .then(
+      (blob) =>
+        new Promise<string>((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result as string);
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(blob);
+        }),
+    );
+  dataUrlCache.set(url, p);
+  p.catch(() => {
+    if (dataUrlCache.get(url) === p) dataUrlCache.delete(url);
+  });
+  return p;
+}
+
+async function inlineExternalImages(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.getAttribute("src");
+      if (!src || src.startsWith("data:")) return;
+      try {
+        const abs = new URL(src, document.baseURI).href;
+        img.setAttribute("src", await fetchAsDataUrl(abs));
+      } catch (e) {
+        console.warn("[html-in-canvas] failed to inline img", src, e);
+        img.removeAttribute("src");
+      }
+    }),
+  );
+}

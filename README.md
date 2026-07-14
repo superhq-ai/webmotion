@@ -21,6 +21,7 @@ The **deterministic core** is built and unit-tested (25 tests, verified in Node 
 | `interpolate` + easing (incl. cubic-bézier) | `animation/*` | ✅ tested |
 | Backend-agnostic runtime | `runtime/*` | ✅ tested |
 | Canvas 2D backend | `render/canvas-renderer` | ✅ (browser) |
+| HTML / foreignObject renderer | `html-in-canvas/*` | ✅ (browser) |
 | WebCodecs encoder w/ backpressure | `export/encoder` | ✅ (browser) |
 | Offline export loop | `export/exporter` | ✅ (browser) |
 
@@ -30,7 +31,6 @@ identical in Node and the browser. See `examples/` for the live end-to-end demo.
 
 ### Not yet built
 
-- **HTML / foreign­Object renderer** — rasterizing live HTML/CSS into frames. This is the real differentiator over a plain canvas engine and the hardest problem (deterministic layout settle, font readiness, cross-origin taint). Native [HTML-in-Canvas](https://developer.chrome.com/blog/html-in-canvas-origin-trial) is the eventual backend; a `<foreignObject>` fallback comes first.
 - WebGL / WebGPU backends, audio pipeline, WebM muxing, Web Worker export.
 
 ## Architecture
@@ -74,15 +74,49 @@ const runtime = new Runtime({
 await runtime.renderFrame(30); // draws exactly frame 30, every time
 ```
 
+## HTML backend
+
+```ts
+import { Composition, Runtime, Layer } from "@superhq/webmotion";
+import { HtmlRenderer } from "@superhq/webmotion/html-in-canvas";
+
+const composition = new Composition({ width: 1280, height: 720, fps: 30, durationInFrames: 180 });
+
+class HtmlCard {
+  mount({ container }) {
+    this.root = document.createElement("div");
+    this.root.textContent = "HTML in Canvas";
+    this.root.style.cssText = "width:100%;height:100%;display:grid;place-items:center;color:white;";
+    container?.appendChild(this.root);
+  }
+  renderFrame({ frame }) {
+    this.root.style.opacity = String(Math.min(1, frame / 20));
+  }
+  destroy() {
+    this.root.remove();
+  }
+}
+
+const runtime = new Runtime({
+  composition,
+  renderer: new HtmlRenderer(1280, 720),
+  layers: [new Layer({ component: new HtmlCard() })],
+});
+```
+
+The HTML backend ships as `@superhq/webmotion/html-in-canvas`. It rasterizes a live DOM subtree into a canvas through an SVG `foreignObject`, driven by WebMotion's own `DomRasterizer`. That rasterizer is a derivative work adapted from repalash's MIT-licensed `three-html-render` and `ts-browser-helpers`; see `src/html-in-canvas/CREDITS.md`.
+
 ## Develop
 
 ```bash
 npm install
 npm test          # pure-core unit tests (Node)
-npm run build     # tsc → dist/
+npm run build     # tsc -> dist/
 
-# Live browser demo (canvas → WebCodecs → downloadable MP4):
-npx serve .       # or any static server, then open /examples/
+# Live demo app (Vite, with a sidebar of demos):
+npm run demo      # builds the library, then starts Vite and opens the browser
 ```
 
-The demo needs a Chromium-based browser (WebCodecs H.264 + `OffscreenCanvas`).
+The demo app lives in `examples/` (a small Vite app). Each entry under
+`examples/demos/` shares a reusable player that handles preview, scrubbing, and
+MP4 export. It needs a Chromium-based browser (WebCodecs H.264 + `OffscreenCanvas`).
