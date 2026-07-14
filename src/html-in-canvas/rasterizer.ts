@@ -813,6 +813,17 @@ async function inlineExternalImages(root: HTMLElement): Promise<void> {
       el.setAttribute("style", await inlineCssUrlsCached(styleAttr));
     }),
   );
+
+  // <style> elements inside the clone are serialized into the foreignObject
+  // and apply there with higher cascade position than the svg-level styles, so
+  // a relative url() in one would override its inlined copy with a reference
+  // the SVG document cannot load.
+  await Promise.all(
+    Array.from(root.querySelectorAll("style")).map(async (styleEl) => {
+      const css = styleEl.textContent ?? "";
+      if (css.includes("url(")) styleEl.textContent = await inlineCssUrlsCached(css);
+    }),
+  );
 }
 
 // Inlined style strings are identical across frames (only animated properties
