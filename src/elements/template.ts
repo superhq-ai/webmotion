@@ -244,10 +244,12 @@ function collectFors(root: Element): Element[] {
 }
 
 /**
- * Expand every <w-for> under `root` against the <w-data> declared there. Runs
- * once at composition setup; the expanded elements are ordinary scene content.
+ * Expand every <w-for> under `root` against the <w-data> declared there, plus
+ * `extra` data provided from JS (the composition's `data` property), which
+ * wins on name conflicts. Runs once at composition setup; the expanded
+ * elements are ordinary scene content.
  */
-export function expandTemplates(root: Element): void {
-  const scopes: Scope[] = [collectData(root)];
+export function expandTemplates(root: Element, extra?: Record<string, unknown>): void {
+  const scopes: Scope[] = [{ ...collectData(root), ...extra }];
   for (const el of collectFors(root)) expandFor(el, scopes);
 }

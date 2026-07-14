@@ -123,6 +123,19 @@ describe("WComposition", () => {
     expect(comp.durationInFrames).toBe(150);
   });
 
+  it("expands templates against the data property set before connect", async () => {
+    const comp = document.createElement("w-composition") as WComposition;
+    comp.setAttribute("width", "640");
+    comp.setAttribute("height", "360");
+    comp.data = { chips: ["a", "b"] };
+    comp.innerHTML = `<w-for each="chips" as="chip"><w-text class="chip">{chip}</w-text></w-for>`;
+    document.body.appendChild(comp);
+    await comp.ready;
+
+    const chips = Array.from(comp.querySelectorAll(".chip")).filter((c) => !c.closest("w-for"));
+    expect(chips.map((c) => c.textContent)).toEqual(["a", "b"]);
+  });
+
   it("instantiates scene markup from a template", async () => {
     const comp = await mountComposition(`
       <template id="scene"><w-text text="From template"></w-text></template>

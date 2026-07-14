@@ -114,6 +114,16 @@ describe("expandTemplates", () => {
     expect(stamped?.textContent).toBe("{broken.path}");
   });
 
+  it("accepts data from JS, winning over w-data on name conflicts", () => {
+    const root = mount(`
+      <w-data name="lines">["markup"]</w-data>
+      <w-for each="lines" as="line"><w-text>{line} {extra}</w-text></w-for>`);
+    expandTemplates(root, { lines: ["from js", "second"], extra: "ok" });
+
+    const texts = Array.from(root.querySelectorAll(":scope > w-text"));
+    expect(texts.map((t) => t.textContent)).toEqual(["from js ok", "second ok"]);
+  });
+
   it("ignores invalid w-data JSON with a warning, not a throw", () => {
     const root = mount(`
       <w-data name="bad">not json</w-data>

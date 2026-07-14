@@ -20,6 +20,17 @@ How repetition is declared in WebMotion's HTML layer. Companion to [MOTION.md](.
 
 The text content is parsed as JSON once at setup. Invalid JSON logs a warning and the name resolves to nothing. `<w-data>` is inert: never rendered, skipped by the frame walk.
 
+## Data from JS
+
+The composition's `data` property provides the same names programmatically, merged over `<w-data>` declarations (JS wins on conflicts):
+
+```js
+const comp = document.querySelector("w-composition");
+comp.data = { features: await fetchFeatures() };
+```
+
+Set it before the element connects, or in a script that runs before setup fires (setup is deferred one frame after connect). Expansion still happens exactly once; assigning `data` later has no effect, like editing a `<w-data>` after setup.
+
 ## `<w-for>`: repetition
 
 ```html

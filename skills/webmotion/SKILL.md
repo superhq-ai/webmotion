@@ -140,7 +140,7 @@ See [references/recipes.md](references/recipes.md) for complete, launch-quality 
 </w-for>
 ```
 
-`{...}` placeholders are data paths plus `+ - * /` arithmetic, nothing else (no calls, no eval). Expansion stamps real elements once at setup; there is no reactivity. For data-dependent structure beyond repetition, generate markup in JS.
+`{...}` placeholders are data paths plus `+ - * /` arithmetic, nothing else (no calls, no eval). Expansion stamps real elements once at setup; there is no reactivity. Data can also come from JS via the composition's `data` property (set before connect or before setup fires; wins over `<w-data>` on name conflicts). For data-dependent structure beyond repetition, generate markup in JS.
 
 ### Sound
 

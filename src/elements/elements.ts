@@ -113,6 +113,13 @@ class WComposition extends HTMLElement {
   durationInFrames = 150;
   currentFrame = 0;
 
+  // Template data provided from JS, merged over <w-data> declarations (JS
+  // wins on name conflicts). Set it before the element connects, or in a
+  // script that runs before setup fires; expansion happens once at setup.
+  // `declare` keeps the field off the instance so a value assigned before
+  // custom-element upgrade survives.
+  declare data?: Record<string, unknown>;
+
   readonly ready: Promise<void>;
   private resolveReady!: () => void;
   private stage!: HTMLElement;
@@ -162,9 +169,9 @@ class WComposition extends HTMLElement {
       if (tpl instanceof HTMLTemplateElement) this.appendChild(tpl.content.cloneNode(true));
     }
 
-    // Expand <w-for> repetition against <w-data>. Once, before the first frame;
-    // see docs/TEMPLATE.md.
-    expandTemplates(this);
+    // Expand <w-for> repetition against <w-data> and the data property. Once,
+    // before the first frame; see docs/TEMPLATE.md.
+    expandTemplates(this, this.data);
 
     // Move authored children into a fixed-size stage that we scale to fit.
     this.stage = document.createElement("div");
