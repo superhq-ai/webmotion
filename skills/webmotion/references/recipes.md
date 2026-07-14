@@ -16,7 +16,7 @@ What separates keynote-grade motion from a slideshow:
 
 ## Staged typography (beat in, beat out)
 
-**The nesting rule:** two tweens on the same property of one element fight — outside its window a tween still writes its clamped boundary value, and the last one wins, so an exit tween would hold opacity at 1 during the entrance. Put entrance and exit on different nesting levels instead: opacity and transforms compose multiplicatively through the tree.
+**The nesting rule:** two tweens on the same property of one element fight: outside its window a tween still writes its clamped boundary value, and the last one wins, so an exit tween would hold opacity at 1 during the entrance. Put entrance and exit on different nesting levels instead; opacity and transforms compose multiplicatively through the tree.
 
 ```html
 <w-defs>

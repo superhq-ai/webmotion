@@ -1,6 +1,6 @@
 ---
 name: webmotion
-description: Author deterministic, browser-rendered videos with @superhq/webmotion — declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Use when the user wants motion graphics, title cards, launch/product videos, kinetic typography, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas animation exported to MP4.
+description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Use when the user wants motion graphics, title cards, launch/product videos, kinetic typography, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas animation exported to MP4.
 ---
 
 # WebMotion
