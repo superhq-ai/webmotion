@@ -163,3 +163,4 @@ Preview plays through a live `AudioContext` (frames pace off the audio clock); e
 - Export throws if no H.264 encoder is available; surface that error to the user (non-Chromium browsers).
 - Autoplay policy: audio preview needs a user gesture to start the `AudioContext`; `autoplay` compositions run silent until first interaction.
 - The composition scales to its container width; give the host element a real width.
+- Stamped `<w-for>` output lands as siblings after the element; the template's own children stay inside it, inert. Scene queries must exclude them (`.closest("w-for")` filter), or selectors match the un-substituted template too.

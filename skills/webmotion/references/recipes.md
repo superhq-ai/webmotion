@@ -61,17 +61,65 @@ Use a wrapper `<w-el>` sized to the full frame; `scale` composes on the transfor
 
 ## Feature-line reveal (one by one)
 
-Feature statements are read, not glanced, so give each line ~30 frames to itself before the next enters:
+Feature statements are read, not glanced, so give each line ~30 frames to itself before the next enters. With the lines as data, the stagger and layout are one expression each:
 
 ```html
 <w-sequence from="150" duration="140">
-  <w-sequence from="0"><w-text class="feature" motion="beat-in" x="0" y="270" width="1280">Deterministic.</w-text></w-sequence>
-  <w-sequence from="30"><w-text class="feature" motion="beat-in" x="0" y="350" width="1280">Browser-native.</w-text></w-sequence>
-  <w-sequence from="60"><w-text class="feature" motion="beat-in" x="0" y="430" width="1280">No render farm.</w-text></w-sequence>
+  <w-data name="features">["Deterministic.", "Browser-native.", "No render farm."]</w-data>
+  <w-for each="features" as="line">
+    <w-sequence from="{i * 30}">
+      <w-text class="feature" motion="beat-in" x="0" y="{270 + i * 80}" width="1280">{line}</w-text>
+    </w-sequence>
+  </w-for>
 </w-sequence>
 ```
 
-For grouped items (chips, cards) tighten the offsets to 6–10 frames so they read as one cascading gesture.
+For grouped items (chips, cards) tighten the offset to `{i * 8}` so they read as one cascading gesture.
+
+## Data-driven charts and boards
+
+Templating drives motion values too: per-item tween targets and cascading windows from one template.
+
+```html
+<w-data name="velocity">[96, 132, 118, 170, 152, 208, 238]</w-data>
+<div class="chart">
+  <w-for each="velocity" as="peak">
+    <div class="bar"><w-animate property="height" from="16px" to="{peak}px"
+         start="{18 + i * 4}" end="{44 + i * 4}" easing="easeOutCubic"></w-animate></div>
+  </w-for>
+</div>
+```
+
+Nested loops handle boards and grids; the inner `each` resolves through the outer binding:
+
+```html
+<w-data name="board">[
+  { "title": "Backlog", "cards": [{ "t": "Billing", "id": "ORB-341" }] },
+  { "title": "Done",    "cards": [{ "t": "Sync engine", "id": "ORB-290" }] }
+]</w-data>
+<w-for each="board" as="col">
+  <div class="col"><h4>{col.title}</h4>
+    <w-for each="col.cards" as="card">
+      <div class="card">{card.t}<span class="tag">{card.id}</span></div>
+    </w-for>
+  </div>
+</w-for>
+```
+
+## Soundtrack
+
+A music bed under the whole film, faded out by envelope over the last ~40 frames, and effects placed on beats by structure. Lead a hit by 4–6 frames so its sweep peaks as the visual lands:
+
+```html
+<w-audio src="assets/score.m4a" gain="0.9">
+  <w-animate property="gain" from="0.9" to="0" start="345" end="385"></w-animate>
+</w-audio>
+<w-sequence from="74">  <!-- reveal beat starts at 78 -->
+  <w-audio src="assets/whoosh.m4a" gain="0.55"></w-audio>
+</w-sequence>
+```
+
+Levels that sit well: loudness-normalized music around `gain` 0.8–0.9, effects 0.3–0.6. Use CC0/CC-BY sources and keep a credits file; trim and normalize clips offline (`ffmpeg -af loudnorm`) rather than shipping full-length tracks.
 
 ## End card
 
