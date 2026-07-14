@@ -63,9 +63,25 @@ Inside a `<w-for>` subtree, `{...}` in attribute values and text nodes is substi
 
 Outside a `<w-for>`, braces are ordinary text.
 
+## `<w-if>`: static variant selection
+
+```html
+<w-if when="flags.pro">
+  <w-sequence from="220" duration="130">...the pro feature beat...</w-sequence>
+</w-if>
+
+<w-for each="cards" as="card">
+  <div class="card">{card.t}<w-if when="card.urgent"><span class="badge">urgent</span></w-if></div>
+</w-for>
+```
+
+`when` is the same expression language, judged by template truthiness: `false`, `0`, `""`, `null`, and empty arrays do not render; everything else does. Truthy stamps the children (once, like `<w-for>`); falsy stamps nothing. Combined with the `data` property, one scene renders many variants: localized cuts, plan-specific beats, per-customer exports.
+
+There is no `w-else` and no comparison or boolean operators in `when`. A condition that needs logic (`count > 3`, negation) is computed into the data as a boolean, in JS or in the JSON. Like everything in this layer, `<w-if>` is evaluated once at setup; it does not toggle.
+
 ## Timing model
 
-Expansion runs once, inside `<w-composition>` setup, after `template=""` instantiation and before the first frame renders. Expanded elements are ordinary scene elements from then on: motion attributes resolve, sequences shift time, `<w-audio>` clips are collected. Editing a `<w-data>` or `<w-for>` after setup has no effect; the template layer is deliberately not live.
+Expansion runs once, inside `<w-composition>` setup, after `template=""` instantiation and before the first frame renders. Expanded elements are ordinary scene elements from then on: motion attributes resolve, sequences shift time, `<w-audio>` clips are collected. Editing a `<w-data>`, `<w-for>`, or `<w-if>` after setup has no effect; the template layer is deliberately not live.
 
 ## What this is not
 

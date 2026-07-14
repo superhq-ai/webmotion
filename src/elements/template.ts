@@ -156,10 +156,10 @@ function substituteTree(node: Node, scopes: Scope[]): void {
       node.setAttribute(attr.name, substituteString(attr.value, scopes));
     }
   }
-  // A nested <w-for>'s subtree is template content: its placeholders reference
-  // bindings that only exist when it expands, so only its attributes (each,
-  // count) are substituted now.
-  if (node.tagName === "W-FOR") return;
+  // A nested directive's subtree is template content, cloned and substituted
+  // by its own expansion; only its attributes (each, count, when) are
+  // substituted now.
+  if (node.tagName === "W-FOR" || node.tagName === "W-IF") return;
   for (const child of Array.from(node.childNodes)) {
     substituteTree(child, scopes);
   }
@@ -179,6 +179,31 @@ function collectData(root: Element): Scope {
     }
   }
   return scope;
+}
+
+// Template truthiness for <w-if when>: false, 0, "", null, undefined, NaN,
+// and empty arrays do not render.
+function isTruthy(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "number") return Number.isFinite(value) && value !== 0;
+  return Boolean(value);
+}
+
+// Clone a directive's children after it, substituting placeholders and
+// expanding nested directives with the given scopes. Returns the new anchor.
+function stampChildren(el: Element, anchor: ChildNode, scopes: Scope[]): ChildNode {
+  for (const child of Array.from(el.childNodes)) {
+    const clone = child.cloneNode(true);
+    substituteTree(clone, scopes);
+    anchor.after(clone);
+    anchor = clone as ChildNode;
+    // Depth first, so inner directives see the current bindings.
+    if (clone instanceof Element) {
+      if (isDirective(clone)) expandDirective(clone, scopes);
+      else for (const nested of collectDirectives(clone)) expandDirective(nested, scopes);
+    }
+  }
+  return anchor;
 }
 
 function expandFor(el: Element, scopes: Scope[]): void {
@@ -214,28 +239,38 @@ function expandFor(el: Element, scopes: Scope[]): void {
 
   let anchor: ChildNode = el;
   items.forEach((item, index) => {
-    const iterationScopes = [{ [as]: item, [indexName]: index }, ...scopes];
-    for (const child of Array.from(el.childNodes)) {
-      const clone = child.cloneNode(true);
-      substituteTree(clone, iterationScopes);
-      anchor.after(clone);
-      anchor = clone as ChildNode;
-      // Depth first, so inner loops see this iteration's bindings.
-      if (clone instanceof Element) {
-        for (const nested of collectFors(clone)) expandFor(nested, iterationScopes);
-        if (clone.tagName === "W-FOR") expandFor(clone, iterationScopes);
-      }
-    }
+    anchor = stampChildren(el, anchor, [{ [as]: item, [indexName]: index }, ...scopes]);
   });
 }
 
-// Direct and nested <w-for> elements of a subtree, outermost only; inner ones
-// are handled by their outer loop's expansion.
-function collectFors(root: Element): Element[] {
+function expandIf(el: Element, scopes: Scope[]): void {
+  const when = el.getAttribute("when") ?? "";
+  let value: unknown;
+  try {
+    value = evaluate(when.trim(), scopes);
+  } catch (e) {
+    console.warn(`[webmotion] <w-if when="${when}">:`, (e as Error).message);
+    return;
+  }
+  if (isTruthy(value)) stampChildren(el, el, scopes);
+}
+
+function isDirective(el: Element): boolean {
+  return el.tagName === "W-FOR" || el.tagName === "W-IF";
+}
+
+function expandDirective(el: Element, scopes: Scope[]): void {
+  if (el.tagName === "W-FOR") expandFor(el, scopes);
+  else expandIf(el, scopes);
+}
+
+// Direct and nested directive elements of a subtree, outermost only; inner
+// ones are handled by their outer directive's expansion.
+function collectDirectives(root: Element): Element[] {
   const out: Element[] = [];
   const walk = (el: Element): void => {
     for (const child of Array.from(el.children)) {
-      if (child.tagName === "W-FOR") out.push(child);
+      if (isDirective(child)) out.push(child);
       else walk(child);
     }
   };
@@ -244,12 +279,12 @@ function collectFors(root: Element): Element[] {
 }
 
 /**
- * Expand every <w-for> under `root` against the <w-data> declared there, plus
- * `extra` data provided from JS (the composition's `data` property), which
- * wins on name conflicts. Runs once at composition setup; the expanded
- * elements are ordinary scene content.
+ * Expand every <w-for> and <w-if> under `root` against the <w-data> declared
+ * there, plus `extra` data provided from JS (the composition's `data`
+ * property), which wins on name conflicts. Runs once at composition setup;
+ * the expanded elements are ordinary scene content.
  */
 export function expandTemplates(root: Element, extra?: Record<string, unknown>): void {
   const scopes: Scope[] = [{ ...collectData(root), ...extra }];
-  for (const el of collectFors(root)) expandFor(el, scopes);
+  for (const el of collectDirectives(root)) expandDirective(el, scopes);
 }

@@ -126,7 +126,8 @@ function isInert(tagName: string): boolean {
     tagName === "W-ANIMATION" ||
     tagName === "W-AUDIO" ||
     tagName === "W-FOR" ||
-    tagName === "W-DATA"
+    tagName === "W-DATA" ||
+    tagName === "W-IF"
   );
 }
 

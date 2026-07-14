@@ -114,6 +114,51 @@ describe("expandTemplates", () => {
     expect(stamped?.textContent).toBe("{broken.path}");
   });
 
+  it("stamps w-if children when truthy and nothing when falsy", () => {
+    const root = mount(`
+      <w-data name="flags">{"pro": true, "trial": false, "seats": 0, "team": ["ana"]}</w-data>
+      <w-if when="flags.pro"><w-text id="a">pro</w-text></w-if>
+      <w-if when="flags.trial"><w-text id="b">trial</w-text></w-if>
+      <w-if when="flags.seats"><w-text id="c">seats</w-text></w-if>
+      <w-if when="flags.team"><w-text id="d">team</w-text></w-if>`);
+    expandTemplates(root);
+
+    expect(root.querySelector(":scope > #a")).not.toBeNull();
+    expect(root.querySelector(":scope > #b")).toBeNull();
+    expect(root.querySelector(":scope > #c")).toBeNull();
+    expect(root.querySelector(":scope > #d")).not.toBeNull();
+  });
+
+  it("treats empty arrays as falsy", () => {
+    const root = mount(`
+      <w-data name="cards">[]</w-data>
+      <w-if when="cards"><w-el></w-el></w-if>`);
+    expandTemplates(root);
+    expect(root.querySelectorAll(":scope > w-el")).toHaveLength(0);
+  });
+
+  it("evaluates w-if per item inside a loop", () => {
+    const root = mount(`
+      <w-data name="cards">[
+        {"t": "one", "urgent": true},
+        {"t": "two", "urgent": false},
+        {"t": "three", "urgent": true}
+      ]</w-data>
+      <w-for each="cards" as="card">
+        <div class="card">{card.t}<w-if when="card.urgent"><span class="badge">urgent</span></w-if></div>
+      </w-for>`);
+    expandTemplates(root);
+
+    const cards = Array.from(root.querySelectorAll(":scope > .card"));
+    expect(cards.map((c) => c.querySelectorAll(":scope > .badge").length)).toEqual([1, 0, 1]);
+  });
+
+  it("leaves the tree untouched on a bad when expression", () => {
+    const root = mount(`<w-if when="missing.path"><w-el></w-el></w-if>`);
+    expect(() => expandTemplates(root)).not.toThrow();
+    expect(root.querySelectorAll(":scope > w-el")).toHaveLength(0);
+  });
+
   it("accepts data from JS, winning over w-data on name conflicts", () => {
     const root = mount(`
       <w-data name="lines">["markup"]</w-data>

@@ -65,6 +65,7 @@ Import once, then the scene is markup:
 | `<w-audio>` | `src` `from` `duration` `offset` (frames into source) `gain` | A sound clip on the timeline, inert. Participates in sequence time like visuals; `gain` animates via `<w-animate property="gain">` (local frames, replaces the base attribute). Full spec: docs/AUDIO.md. |
 | `<w-data>` | `name` | Named JSON data (element text content), for `<w-for>`. Inert. |
 | `<w-for>` | `each` (array path) or `count` (number), `as` (default `item`), `index` (default `i`) | Repetition by macro expansion at setup: children are stamped once per item with `{...}` placeholders substituted. Full spec: docs/TEMPLATE.md. |
+| `<w-if>` | `when` (expression) | Static variant selection: stamps its children once at setup when truthy (`false`, `0`, `""`, `null`, empty arrays are falsy). No else, no comparison operators; compute booleans into the data. |
 
 All entities are absolutely positioned by `x`/`y`/`width`/`height` in composition pixels.
 
@@ -140,7 +141,7 @@ See [references/recipes.md](references/recipes.md) for complete, launch-quality 
 </w-for>
 ```
 
-`{...}` placeholders are data paths plus `+ - * /` arithmetic, nothing else (no calls, no eval). Expansion stamps real elements once at setup; there is no reactivity. Data can also come from JS via the composition's `data` property (set before connect or before setup fires; wins over `<w-data>` on name conflicts). For data-dependent structure beyond repetition, generate markup in JS.
+`{...}` placeholders are data paths plus `+ - * /` arithmetic, nothing else (no calls, no eval). Expansion stamps real elements once at setup; there is no reactivity. Data can also come from JS via the composition's `data` property (set before connect or before setup fires; wins over `<w-data>` on name conflicts). `<w-if when="flags.pro">` selects variants statically, per item inside loops or for whole beats; combined with `data`, one scene exports many personalized cuts. For data-dependent structure beyond that, generate markup in JS.
 
 ### Sound
 

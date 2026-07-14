@@ -28,7 +28,7 @@ export interface AudioClip {
   envelope: Array<{ frame: number; value: number }> | null;
 }
 
-const INERT = new Set(["W-DEFS", "W-ANIMATION", "W-ANIMATE", "W-FOR", "W-DATA"]);
+const INERT = new Set(["W-DEFS", "W-ANIMATION", "W-ANIMATE", "W-FOR", "W-DATA", "W-IF"]);
 
 // Collect every <w-audio> under `root` with sequence timing applied, mirroring
 // the frame walk: a <w-sequence from duration> shifts the start and bounds the

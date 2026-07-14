@@ -103,6 +103,7 @@ class WAnimation extends WInert {}
 class WAudio extends WInert {}
 class WFor extends WInert {}
 class WData extends WInert {}
+class WIf extends WInert {}
 
 // The composition root. Owns the frame clock, sizes and scales the stage to fit,
 // and drives preview, seeking, and MP4 export.
@@ -355,6 +356,7 @@ export function defineElements(): void {
     ["w-audio", WAudio],
     ["w-for", WFor],
     ["w-data", WData],
+    ["w-if", WIf],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);
