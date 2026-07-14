@@ -6,7 +6,7 @@ import { exportComposition, type ExportOptions } from "./export.js";
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
 // base opacity; animated transforms and opacity are layered on per frame by the
 // component system. Subclasses add their own static presentation.
-class WmEntity extends HTMLElement {
+class WEntity extends HTMLElement {
   static get observedAttributes(): string[] {
     return ["x", "y", "width", "height", "opacity"];
   }
@@ -33,11 +33,11 @@ class WmEntity extends HTMLElement {
   }
 }
 
-class WmEl extends WmEntity {}
+class WEl extends WEntity {}
 
-class WmText extends WmEntity {
+class WText extends WEntity {
   static override get observedAttributes(): string[] {
-    return [...WmEntity.observedAttributes, "text", "font", "color", "align"];
+    return [...WEntity.observedAttributes, "text", "font", "color", "align"];
   }
 
   protected override applyStatic(): void {
@@ -53,9 +53,9 @@ class WmText extends WmEntity {
   }
 }
 
-class WmRect extends WmEntity {
+class WRect extends WEntity {
   static override get observedAttributes(): string[] {
-    return [...WmEntity.observedAttributes, "fill", "radius"];
+    return [...WEntity.observedAttributes, "fill", "radius"];
   }
 
   protected override applyStatic(): void {
@@ -69,7 +69,7 @@ class WmRect extends WmEntity {
 
 // Timing window. Behaviorless on its own; the frame walk reads from/duration and
 // shows or hides it, shifting the frame origin for its descendants.
-class WmSequence extends HTMLElement {
+class WSequence extends HTMLElement {
   connectedCallback(): void {
     this.style.display = this.style.display || "block";
   }
@@ -77,7 +77,7 @@ class WmSequence extends HTMLElement {
 
 // The composition root. Owns the frame clock, sizes and scales the stage to fit,
 // and drives preview, seeking, and MP4 export.
-class WmComposition extends HTMLElement {
+class WComposition extends HTMLElement {
   width = 1280;
   height = 720;
   fps = 30;
@@ -172,7 +172,7 @@ class WmComposition extends HTMLElement {
     const clamped = Math.max(0, Math.min(this.durationInFrames - 1, Math.round(frame)));
     this.currentFrame = clamped;
     this.renderFrameAt(clamped);
-    this.dispatchEvent(new CustomEvent("wm-seek", { detail: { frame: clamped } }));
+    this.dispatchEvent(new CustomEvent("w-seek", { detail: { frame: clamped } }));
   }
 
   play(): void {
@@ -226,15 +226,15 @@ export function defineElements(): void {
   registerAnimate();
   if (typeof customElements === "undefined") return;
   const defs: [string, CustomElementConstructor][] = [
-    ["wm-composition", WmComposition],
-    ["wm-sequence", WmSequence],
-    ["wm-el", WmEl],
-    ["wm-text", WmText],
-    ["wm-rect", WmRect],
+    ["w-composition", WComposition],
+    ["w-sequence", WSequence],
+    ["w-el", WEl],
+    ["w-text", WText],
+    ["w-rect", WRect],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);
   }
 }
 
-export { WmComposition };
+export { WComposition };

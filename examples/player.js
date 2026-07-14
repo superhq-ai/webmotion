@@ -46,7 +46,8 @@ function resolveChapters(demo, durationInFrames) {
 // playback, and MP4 export. Returns a handle with destroy() for teardown when
 // the user switches demos.
 export function mountPlayer(mountEl, demo) {
-  const { composition, buildRuntime } = demo.create();
+  const created = demo.create();
+  const { composition } = created;
   const lastFrame = composition.durationInFrames - 1;
   const chapters = resolveChapters(demo, composition.durationInFrames);
   // A representative frame to show on load, so the preview is never blank.
@@ -85,9 +86,16 @@ export function mountPlayer(mountEl, demo) {
       <span class="status"></span>
       <button class="export-btn">Export MP4</button>
     </div>
+
+    ${demo.source ? `<details class="source"><summary>View the HTML</summary><pre><code></code></pre></details>` : ""}
   `;
 
-  const canvas = mountEl.querySelector(".stage");
+  if (demo.source) {
+    // textContent, so the markup shows as code instead of being parsed.
+    mountEl.querySelector(".source code").textContent = demo.source;
+  }
+
+  const stageHost = mountEl.querySelector(".stage");
   const seek = mountEl.querySelector(".seek");
   const playBtn = mountEl.querySelector(".play-btn");
   const exportBtn = mountEl.querySelector(".export-btn");
@@ -97,11 +105,34 @@ export function mountPlayer(mountEl, demo) {
   const timeCur = mountEl.querySelector(".time-cur");
   const chapterEls = [...mountEl.querySelectorAll(".chapter")];
 
-  canvas.width = composition.width;
-  canvas.height = composition.height;
-  canvas.style.aspectRatio = `${composition.width} / ${composition.height}`;
-
-  const preview = buildRuntime(canvas);
+  // A demo is either canvas-backed (buildRuntime renders into the stage canvas)
+  // or element-backed (a live <w-composition>; the DOM itself is the preview and
+  // rasterization only happens on export).
+  let preview;
+  if (created.element) {
+    const el = created.element;
+    el.classList.add("stage-element");
+    // The element scales itself to its own width, so a shell with the
+    // composition's aspect ratio constrains that width by the available height.
+    const shell = document.createElement("div");
+    shell.className = "stage-shell";
+    shell.style.aspectRatio = `${composition.width} / ${composition.height}`;
+    shell.appendChild(el);
+    stageHost.replaceWith(shell);
+    preview = {
+      // Setup is deferred to a frame after connect, so wait before seeking.
+      renderFrame: async (frame) => {
+        await el.ready;
+        el.seek(frame);
+      },
+      destroy: () => shell.remove(),
+    };
+  } else {
+    stageHost.width = composition.width;
+    stageHost.height = composition.height;
+    stageHost.style.aspectRatio = `${composition.width} / ${composition.height}`;
+    preview = created.buildRuntime(stageHost);
+  }
 
   let disposed = false;
   let playing = false;
@@ -180,20 +211,20 @@ export function mountPlayer(mountEl, demo) {
     });
   }
 
-  exportBtn.addEventListener("click", async () => {
-    stop();
-    exportBtn.disabled = true;
-    status.textContent = "Encoding...";
-
-    const codec = await negotiateCodec(composition);
-    if (!codec) {
-      status.textContent = "No supported H.264 encoder in this browser.";
-      exportBtn.disabled = false;
-      return;
+  // Encode the composition to an MP4 Blob. Element-backed demos own their whole
+  // export pipeline; canvas demos get a fresh runtime and offscreen canvas so
+  // export does not disturb preview.
+  async function encode(onProgress) {
+    if (created.element) {
+      return created.element.export({ bitrate: BITRATE, onProgress });
     }
 
-    // A fresh runtime and offscreen canvas so export does not disturb preview.
-    const runtime = buildRuntime(new OffscreenCanvas(composition.width, composition.height));
+    const codec = await negotiateCodec(composition);
+    if (!codec) throw new Error("No supported H.264 encoder in this browser");
+
+    const runtime = created.buildRuntime(
+      new OffscreenCanvas(composition.width, composition.height),
+    );
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
       video: { codec: "avc", width: composition.width, height: composition.height },
@@ -201,17 +232,24 @@ export function mountPlayer(mountEl, demo) {
     });
 
     try {
-      await exportVideo(runtime, {
-        muxer,
-        codec,
-        bitrate: BITRATE,
-        onProgress: ({ frame, total }) => {
-          if (!disposed) status.textContent = `Encoding ${Math.round((frame / total) * 100)}%`;
-        },
+      await exportVideo(runtime, { muxer, codec, bitrate: BITRATE, onProgress });
+      return new Blob([muxer.target.buffer], { type: "video/mp4" });
+    } finally {
+      runtime.destroy();
+    }
+  }
+
+  exportBtn.addEventListener("click", async () => {
+    stop();
+    exportBtn.disabled = true;
+    status.textContent = "Encoding...";
+
+    try {
+      const blob = await encode(({ frame, total }) => {
+        if (!disposed) status.textContent = `Encoding ${Math.round((frame / total) * 100)}%`;
       });
       if (disposed) return;
 
-      const blob = new Blob([muxer.target.buffer], { type: "video/mp4" });
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(blob);
       const kb = Math.round(blob.size / 1024);
@@ -221,7 +259,6 @@ export function mountPlayer(mountEl, demo) {
       status.textContent = `Export failed: ${err.message}`;
     } finally {
       if (!disposed) exportBtn.disabled = false;
-      runtime.destroy();
     }
   });
 

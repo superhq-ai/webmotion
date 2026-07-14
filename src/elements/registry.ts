@@ -147,13 +147,13 @@ function renderEntity(el: HTMLElement, ctx: FrameContext): void {
   }
 }
 
-// Walk the subtree applying the current frame. A <wm-sequence from duration>
+// Walk the subtree applying the current frame. A <w-sequence from duration>
 // shifts the frame origin for its descendants and hides them outside its window.
 export function applyFrame(container: Element, ctx: FrameContext): void {
   for (const child of Array.from(container.children)) {
     if (!(child instanceof HTMLElement)) continue;
 
-    if (child.tagName === "WM-SEQUENCE") {
+    if (child.tagName === "W-SEQUENCE") {
       const from = num(child.getAttribute("from"), 0);
       const durAttr = child.getAttribute("duration");
       const dur = durAttr == null ? Number.POSITIVE_INFINITY : num(durAttr, 0);

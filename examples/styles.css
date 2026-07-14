@@ -115,6 +115,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* When flex:none panels (e.g. the source panel) outgrow the pane, scroll
+     rather than squeezing the stage to nothing. */
+  overflow-y: auto;
 }
 
 /* Fixed height and a single-line blurb so the video area is identical on every
@@ -152,7 +155,7 @@ body {
    than stretching into a larger empty box. */
 .stage-frame {
   flex: 1;
-  min-height: 0;
+  min-height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -163,6 +166,23 @@ canvas.stage {
   max-height: 100%;
   width: auto;
   height: auto;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-stage);
+  border: 1px solid var(--line);
+}
+/* Element-backed stage (<w-composition>). The shell stretches to the available
+   height and derives its width from the composition's aspect ratio (set inline),
+   clamped to the pane; the element then scales itself to the shell's width. */
+.stage-shell {
+  align-self: stretch;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stage-element {
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-stage);
@@ -337,6 +357,38 @@ canvas.stage {
 }
 .dl:hover {
   text-decoration: underline;
+}
+
+/* Collapsible markup panel for declarative demos */
+.source {
+  flex: none;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.source summary {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.source summary:hover {
+  color: var(--ink);
+}
+.source pre {
+  margin: 0;
+  padding: 4px 16px 14px;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  color: var(--ink);
+  tab-size: 2;
 }
 
 @media (max-width: 680px) {
