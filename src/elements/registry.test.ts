@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeAll, describe, expect, it } from "vitest";
-import { registerAnimate } from "./animate.js";
+import { describe, expect, it } from "vitest";
 import {
   applyFrame,
   registerComponent,
@@ -23,13 +22,10 @@ function mount(html: string): HTMLElement {
   return root;
 }
 
-beforeAll(() => {
-  registerAnimate();
-});
-
-describe("applyFrame with the animate component", () => {
+describe("applyFrame with inline <w-animate>", () => {
   it("interpolates opacity as a pure function of frame", () => {
-    const root = mount(`<div animate="property: opacity; from: 0; to: 1; start: 0; end: 10"></div>`);
+    const root = mount(`
+      <div><w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate></div>`);
     const el = root.firstElementChild as HTMLElement;
 
     applyFrame(root, ctx(5));
@@ -41,7 +37,8 @@ describe("applyFrame with the animate component", () => {
   });
 
   it("clamps outside the tween window", () => {
-    const root = mount(`<div animate="property: opacity; from: 0; to: 1; start: 10; end: 20"></div>`);
+    const root = mount(`
+      <div><w-animate property="opacity" from="0" to="1" start="10" end="20"></w-animate></div>`);
     const el = root.firstElementChild as HTMLElement;
 
     applyFrame(root, ctx(0));
@@ -50,56 +47,128 @@ describe("applyFrame with the animate component", () => {
     expect(el.style.opacity).toBe("1");
   });
 
-  it("composes multiple animate__ instances into one transform", () => {
-    const root = mount(
-      `<div animate__x="property: x; from: 0; to: 100; start: 0; end: 10"
-            animate__spin="property: rotate; from: 0; to: 90; start: 0; end: 10"></div>`,
-    );
+  it("composes several tweens into one transform", () => {
+    const root = mount(`
+      <div>
+        <w-animate property="x" from="0" to="100" start="0" end="10"></w-animate>
+        <w-animate property="rotate" from="0" to="90" start="0" end="10"></w-animate>
+      </div>`);
     const el = root.firstElementChild as HTMLElement;
 
     applyFrame(root, ctx(5));
     expect(el.style.transform).toBe("translate(50px, 0px) scale(1) rotate(45deg)");
   });
 
-  it("layers animated opacity on top of the static opacity attribute", () => {
-    const root = mount(
-      `<div opacity="0.5" animate="property: x; from: 0; to: 10; start: 0; end: 10"></div>`,
-    );
-    const el = root.firstElementChild as HTMLElement;
+  it("does not walk into tween elements or animate them", () => {
+    const root = mount(`
+      <div><w-animate property="x" from="0" to="100" start="0" end="10"></w-animate></div>`);
+    const tween = root.querySelector("w-animate") as HTMLElement;
 
-    // Only the transform was touched, so the base opacity attribute is left alone.
     applyFrame(root, ctx(5));
-    expect(el.style.opacity).toBe("");
-    expect(el.style.transform).toBe("translate(5px, 0px) scale(1) rotate(0deg)");
+    expect(tween.style.transform).toBe("");
   });
 
   it("writes non-transform properties straight to style with their unit", () => {
-    const root = mount(
-      `<div animate="property: border-radius; from: 0px; to: 20px; start: 0; end: 10"></div>`,
-    );
+    const root = mount(`
+      <div><w-animate property="border-radius" from="0px" to="20px" start="0" end="10"></w-animate></div>`);
     const el = root.firstElementChild as HTMLElement;
 
     applyFrame(root, ctx(5));
     expect(el.style.borderRadius).toBe("10px");
   });
 
-  it("reparses when the attribute string changes", () => {
-    const root = mount(`<div animate="property: opacity; from: 0; to: 1; start: 0; end: 10"></div>`);
+  it("reparses when a tween attribute changes", () => {
+    const root = mount(`
+      <div><w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate></div>`);
     const el = root.firstElementChild as HTMLElement;
 
     applyFrame(root, ctx(10));
     expect(el.style.opacity).toBe("1");
 
-    el.setAttribute("animate", "property: opacity; from: 0; to: 0.4; start: 0; end: 10");
+    (root.querySelector("w-animate") as Element).setAttribute("to", "0.4");
     applyFrame(root, ctx(10));
     expect(el.style.opacity).toBe("0.4");
+  });
+});
+
+describe("applyFrame with <w-defs> and motion references", () => {
+  const DEFS = `
+    <w-defs>
+      <w-animation name="fade">
+        <w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate>
+      </w-animation>
+      <w-animation name="rise">
+        <w-animate property="y" from="40" to="0" start="0" end="10"></w-animate>
+      </w-animation>
+    </w-defs>`;
+
+  it("applies a named animation to the referencing element", () => {
+    const root = mount(`${DEFS}<div motion="fade"></div>`);
+    const el = root.querySelector("div") as HTMLElement;
+
+    applyFrame(root, ctx(5));
+    expect(el.style.opacity).toBe("0.5");
+  });
+
+  it("applies multiple names left to right", () => {
+    const root = mount(`${DEFS}<div motion="fade rise"></div>`);
+    const el = root.querySelector("div") as HTMLElement;
+
+    applyFrame(root, ctx(5));
+    expect(el.style.opacity).toBe("0.5");
+    expect(el.style.transform).toBe("translate(0px, 20px) scale(1) rotate(0deg)");
+  });
+
+  it("ignores unresolved names silently", () => {
+    const root = mount(`${DEFS}<div motion="no-such fade"></div>`);
+    const el = root.querySelector("div") as HTMLElement;
+
+    applyFrame(root, ctx(5));
+    expect(el.style.opacity).toBe("0.5");
+  });
+
+  it("lets inline tweens override named ones", () => {
+    const root = mount(`
+      ${DEFS}
+      <div motion="fade">
+        <w-animate property="opacity" from="0" to="0.6" start="0" end="10"></w-animate>
+      </div>`);
+    const el = root.querySelector("div") as HTMLElement;
+
+    applyFrame(root, ctx(10));
+    expect(el.style.opacity).toBe("0.6");
+  });
+
+  it("shadows outer definitions with the nearest scope", () => {
+    const root = mount(`
+      ${DEFS}
+      <section>
+        <w-defs>
+          <w-animation name="fade">
+            <w-animate property="opacity" from="0" to="0.5" start="0" end="10"></w-animate>
+          </w-animation>
+        </w-defs>
+        <div motion="fade"></div>
+      </section>`);
+    const el = root.querySelector("section div") as HTMLElement;
+
+    applyFrame(root, ctx(10));
+    expect(el.style.opacity).toBe("0.5");
+  });
+
+  it("never renders or recurses into defs", () => {
+    const root = mount(`${DEFS}<div motion="fade"></div>`);
+    const defTween = root.querySelector("w-animation w-animate") as HTMLElement;
+
+    applyFrame(root, ctx(5));
+    expect(defTween.style.opacity).toBe("");
   });
 });
 
 describe("applyFrame with sequences", () => {
   const scene = `
     <w-sequence from="10" duration="20">
-      <div animate="property: opacity; from: 0; to: 1; start: 0; end: 10"></div>
+      <div><w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate></div>
     </w-sequence>`;
 
   it("hides a sequence outside its window", () => {
@@ -135,13 +204,30 @@ describe("applyFrame with sequences", () => {
     const root = mount(`
       <w-sequence from="10">
         <w-sequence from="5">
-          <div animate="property: opacity; from: 0; to: 1; start: 0; end: 10"></div>
+          <div><w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate></div>
         </w-sequence>
       </w-sequence>`);
     const inner = root.querySelector("div") as HTMLElement;
 
     applyFrame(root, ctx(20));
     expect(inner.style.opacity).toBe("0.5");
+  });
+
+  it("staggers instances of one definition through sequence windows", () => {
+    const root = mount(`
+      <w-defs>
+        <w-animation name="fade">
+          <w-animate property="opacity" from="0" to="1" start="0" end="10"></w-animate>
+        </w-animation>
+      </w-defs>
+      <w-sequence from="0"><div id="a" motion="fade"></div></w-sequence>
+      <w-sequence from="8"><div id="b" motion="fade"></div></w-sequence>`);
+    const a = root.querySelector("#a") as HTMLElement;
+    const b = root.querySelector("#b") as HTMLElement;
+
+    applyFrame(root, ctx(10));
+    expect(a.style.opacity).toBe("1");
+    expect(b.style.opacity).toBe("0.2");
   });
 });
 

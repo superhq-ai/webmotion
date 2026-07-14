@@ -27,21 +27,23 @@ Import the elements entry once and the scene is just markup:
 </script>
 
 <w-composition width="1280" height="720" fps="30" duration="150" autoplay>
+  <w-defs>
+    <w-animation name="fade-up">
+      <w-animate property="opacity" from="0"  to="1" start="0" end="18" easing="easeOutCubic"></w-animate>
+      <w-animate property="y"       from="40" to="0" start="0" end="18" easing="easeOutCubic"></w-animate>
+    </w-animation>
+  </w-defs>
+
   <w-rect x="0" y="0" width="1280" height="720" fill="#0d101b"></w-rect>
 
   <w-sequence from="12">
-    <w-text
-      text="Author in HTML."
-      x="0" y="250" width="1280" align="center"
-      font="700 96px system-ui" color="#f5f6f8"
-      animate__fade="property: opacity; from: 0; to: 1; start: 0; end: 18; easing: easeOutCubic"
-      animate__rise="property: y; from: 40; to: 0; start: 0; end: 18; easing: easeOutCubic"
-    ></w-text>
+    <w-text motion="fade-up" x="0" y="250" width="1280" align="center"
+            font="700 96px system-ui" color="#f5f6f8">Author in HTML.</w-text>
   </w-sequence>
 </w-composition>
 ```
 
-A `<w-sequence from duration>` shifts the frame origin for its subtree, and every `animate` tween is a pure function of the local frame, so the live preview and the exported video are pixel-for-pixel the same scene. The `animate__id` suffix (borrowed from [A-Frame](https://aframe.io/)) attaches multiple tweens to one element.
+A `<w-sequence from duration>` shifts the frame origin for its subtree; a `<w-animate>` is one tween of one property over a frame window, pure function of the local frame, so the live preview and the exported video are pixel-for-pixel the same scene. Tweens can be written inline as children for one-offs, or defined once in `<w-defs>` and applied by name with `motion="..."`, class-like. The full rules (scoping, ordering, staggering through sequences) are in the [motion spec](./docs/MOTION.md).
 
 The element drives itself:
 

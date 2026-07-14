@@ -68,7 +68,7 @@ const runtime = new Runtime({
 
 ## The declarative layer
 
-`@superhq/webmotion/elements` is a thin layer over the same machinery. `<w-composition>` owns the frame clock and drives the subtree through the component registry each frame; `<w-sequence>` shifts the frame origin for its descendants; the `animate` component is a parsed, per-frame tween that composes with its siblings into a single transform. Export builds a runtime with the HTML renderer pointed at the live stage, so preview DOM and exported pixels come from the same tree.
+`@superhq/webmotion/elements` is a thin layer over the same machinery. `<w-composition>` owns the frame clock and walks the subtree each frame; `<w-sequence>` shifts the frame origin for its descendants; `<w-animate>` elements declare tweens that are sampled per frame and composed into a single transform per entity, with named definitions in `<w-defs>` applied via the `motion` attribute (spec: [MOTION.md](./MOTION.md)). Export builds a runtime with the HTML renderer pointed at the live stage, so preview DOM and exported pixels come from the same tree.
 
 Custom behaviors register through the same component system the built-ins use:
 

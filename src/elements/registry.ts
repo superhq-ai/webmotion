@@ -1,4 +1,5 @@
 import { num } from "./parse.js";
+import { readTween, sampleTween } from "./tween.js";
 
 // The frame context handed to every component each frame. `frame` is local to
 // the nearest enclosing sequence; `globalFrame` is the composition frame.
@@ -31,7 +32,7 @@ export function getComponent(name: string): ComponentDef | undefined {
 }
 
 // The base name of an attribute, dropping the A-Frame style "__id" suffix that
-// allows multiple instances of one component (e.g. animate__fade).
+// allows multiple instances of one component (e.g. pulse__slow).
 function baseName(attr: string): string {
   const i = attr.indexOf("__");
   return i === -1 ? attr : attr.slice(0, i);
@@ -115,11 +116,59 @@ function componentAttrs(el: HTMLElement): string[] {
   return names;
 }
 
-// Render one entity for the current frame: reset accumulators, run each
-// attached component, then compose transform and opacity.
+// Behavior and definition nodes: never rendered, never walked as entities.
+function isInert(tagName: string): boolean {
+  return tagName === "W-ANIMATE" || tagName === "W-DEFS" || tagName === "W-ANIMATION";
+}
+
+// Resolve a <w-animation name> for `el` by walking up the tree: at each
+// ancestor, direct <w-defs> children are checked, so inner scopes shadow outer
+// ones. Falls back to a document-wide search. See docs/MOTION.md.
+function resolveAnimation(el: Element, name: string): Element | null {
+  for (let scope = el.parentElement; scope; scope = scope.parentElement) {
+    for (const child of Array.from(scope.children)) {
+      if (child.tagName !== "W-DEFS") continue;
+      for (const def of Array.from(child.children)) {
+        if (def.tagName === "W-ANIMATION" && def.getAttribute("name") === name) return def;
+      }
+    }
+  }
+  if (typeof document !== "undefined") {
+    for (const def of Array.from(document.querySelectorAll("w-defs > w-animation"))) {
+      if (def.getAttribute("name") === name) return def;
+    }
+  }
+  return null;
+}
+
+// The <w-animate> elements that animate `el` this frame, in application order:
+// each `motion` name left to right (its tweens in document order), then the
+// entity's inline <w-animate> children. Last write to a property wins.
+function gatherTweens(el: HTMLElement): Element[] {
+  const out: Element[] = [];
+  const motion = el.getAttribute("motion");
+  if (motion) {
+    for (const name of motion.split(/\s+/)) {
+      if (!name) continue;
+      const def = resolveAnimation(el, name);
+      if (!def) continue;
+      for (const tween of Array.from(def.children)) {
+        if (tween.tagName === "W-ANIMATE") out.push(tween);
+      }
+    }
+  }
+  for (const tween of Array.from(el.children)) {
+    if (tween.tagName === "W-ANIMATE") out.push(tween);
+  }
+  return out;
+}
+
+// Render one entity for the current frame: reset accumulators, run attached
+// components, sample its tweens, then compose transform and opacity.
 function renderEntity(el: HTMLElement, ctx: FrameContext): void {
   const attrs = componentAttrs(el);
-  if (attrs.length === 0) return;
+  const tweens = gatherTweens(el);
+  if (attrs.length === 0 && tweens.length === 0) return;
 
   const baseOpacity = el.hasAttribute("opacity") ? num(el.getAttribute("opacity"), 1) : 1;
   const st: FrameState = {
@@ -139,6 +188,11 @@ function renderEntity(el: HTMLElement, ctx: FrameContext): void {
     def.render(el, getParsed(el, attr, def), ctx);
   }
 
+  for (const tween of tweens) {
+    const data = readTween(tween);
+    setAnimatedProp(el, data.property, sampleTween(data, ctx.frame), data.unit);
+  }
+
   if (st.touchedTransform) {
     el.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale}) rotate(${st.rot}deg)`;
   }
@@ -152,6 +206,7 @@ function renderEntity(el: HTMLElement, ctx: FrameContext): void {
 export function applyFrame(container: Element, ctx: FrameContext): void {
   for (const child of Array.from(container.children)) {
     if (!(child instanceof HTMLElement)) continue;
+    if (isInert(child.tagName)) continue;
 
     if (child.tagName === "W-SEQUENCE") {
       const from = num(child.getAttribute("from"), 0);

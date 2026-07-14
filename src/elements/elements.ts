@@ -1,6 +1,5 @@
 import { num } from "./parse.js";
 import { applyFrame } from "./registry.js";
-import { registerAnimate } from "./animate.js";
 import { exportComposition, type ExportOptions } from "./export.js";
 
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
@@ -42,8 +41,19 @@ class WText extends WEntity {
 
   protected override applyStatic(): void {
     super.applyStatic();
+    // Text usually lives in child text nodes and renders as-is. The `text`
+    // attribute writes into a dedicated span so element children (inline
+    // <w-animate> tweens) survive it.
     const text = this.getAttribute("text");
-    if (text != null) this.textContent = text;
+    if (text != null) {
+      let span = this.querySelector<HTMLSpanElement>(":scope > span[data-w-text]");
+      if (!span) {
+        span = document.createElement("span");
+        span.setAttribute("data-w-text", "");
+        this.prepend(span);
+      }
+      span.textContent = text;
+    }
     const font = this.getAttribute("font");
     if (font) this.style.font = font;
     const color = this.getAttribute("color");
@@ -74,6 +84,18 @@ class WSequence extends HTMLElement {
     this.style.display = this.style.display || "block";
   }
 }
+
+// Never rendered: <w-animate> declares one tween, <w-defs>/<w-animation> hold
+// named definitions. The frame walk reads their attributes and skips their
+// subtrees. See docs/MOTION.md.
+class WInert extends HTMLElement {
+  connectedCallback(): void {
+    this.style.display = "none";
+  }
+}
+class WAnimate extends WInert {}
+class WDefs extends WInert {}
+class WAnimation extends WInert {}
 
 // The composition root. Owns the frame clock, sizes and scales the stage to fit,
 // and drives preview, seeking, and MP4 export.
@@ -223,7 +245,6 @@ class WComposition extends HTMLElement {
 }
 
 export function defineElements(): void {
-  registerAnimate();
   if (typeof customElements === "undefined") return;
   const defs: [string, CustomElementConstructor][] = [
     ["w-composition", WComposition],
@@ -231,6 +252,9 @@ export function defineElements(): void {
     ["w-el", WEl],
     ["w-text", WText],
     ["w-rect", WRect],
+    ["w-animate", WAnimate],
+    ["w-defs", WDefs],
+    ["w-animation", WAnimation],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);
