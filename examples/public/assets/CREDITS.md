@@ -22,5 +22,6 @@
 
 ## Images
 
+- `reel/*.png` cutouts are AI-generated fictional characters for this project.
 - `hero-orb.webp`, `light-ribbons.webp`, `aurora.webp`, `mesh.webp`, `horizon.webp`
   are AI-generated for this project.

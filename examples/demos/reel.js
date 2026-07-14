@@ -77,9 +77,15 @@ const SCENE = `
 <w-sequence from="8" duration="64">
   <w-el x="0" y="0" width="1080" height="1920">
     <w-animate property="opacity" from="1" to="0" start="54" end="64" easing="easeInCubic"></w-animate>
-    <w-text class="tag" motion="up" x="0" y="700" width="1080">WORLD CUP 2026</w-text>
+    <w-text class="tag" motion="up" x="0" y="330" width="1080">WORLD CUP 2026</w-text>
     <w-sequence from="8">
-      <w-text class="mega" motion="slam" x="60" y="790" width="960">THE SEMIS,<br/>BY THE<br/>NUMBERS</w-text>
+      <w-text class="mega" motion="slam" x="60" y="404" width="960">THE SEMIS,<br/>BY THE<br/>NUMBERS</w-text>
+    </w-sequence>
+    <w-sequence from="16">
+      <w-el motion="slam" x="150" y="830" width="780" height="1050"
+            style="background:url('assets/reel/striker.png') center/contain no-repeat;">
+        <w-animate property="y" from="0" to="-14" start="12" end="48" easing="easeOutSine"></w-animate>
+      </w-el>
     </w-sequence>
   </w-el>
 </w-sequence>
@@ -143,6 +149,10 @@ const SCENE = `
         </w-el>
       </w-sequence>
     </w-for>
+    <w-sequence from="40">
+      <w-el motion="up" x="120" y="1400" width="840" height="480"
+            style="background:url('assets/reel/duel.png') center/contain no-repeat;"></w-el>
+    </w-sequence>
   </w-el>
 </w-sequence>
 
@@ -171,11 +181,15 @@ const SCENE = `
 <!-- Outro -->
 <w-sequence from="380">
   <w-el motion="slam" x="0" y="0" width="1080" height="1920"
-        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
+        style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:380px;gap:22px;">
     <div class="tag">THE FINAL</div>
     <div class="mega">JUL 19<br/>METLIFE</div>
     <div class="sub">Who takes it?</div>
   </w-el>
+  <w-sequence from="6">
+    <w-el motion="up" x="270" y="1060" width="540" height="810"
+          style="background:url('assets/reel/celebrate.png') center/contain no-repeat;"></w-el>
+  </w-sequence>
 </w-sequence>
 `;
 
