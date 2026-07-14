@@ -120,7 +120,7 @@ const SCENE = `
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="68" end="80" easing="easeInCubic"></w-animate>
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/aurora.png') center/cover no-repeat;">
+          style="background:url('assets/aurora.webp') center/cover no-repeat;">
       <w-animate property="opacity" from="0" to="0.75" start="0" end="24" easing="easeOutSine"></w-animate>
       <w-animate property="scale" from="1.05" to="1" start="0" end="80" easing="easeOutSine"></w-animate>
     </w-el>
@@ -142,7 +142,7 @@ const SCENE = `
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="116" end="128" easing="easeInCubic"></w-animate>
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/mesh.png') center/cover no-repeat;">
+          style="background:url('assets/mesh.webp') center/cover no-repeat;">
       <w-animate property="opacity" from="0" to="0.55" start="0" end="20" easing="easeOutSine"></w-animate>
     </w-el>
     <w-text class="headline" motion="beat-in" x="0" y="64" width="1280">Everything, in one view.</w-text>
@@ -182,7 +182,7 @@ const SCENE = `
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="118" end="130" easing="easeInCubic"></w-animate>
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/mesh.png') center/cover no-repeat;transform:scaleX(-1);opacity:0.35;"></w-el>
+          style="background:url('assets/mesh.webp') center/cover no-repeat;transform:scaleX(-1);opacity:0.35;"></w-el>
 
     <w-el motion="beat-in" x="96" y="212" width="440" height="300">
       <div class="eyebrow">PLAN</div>
@@ -223,7 +223,7 @@ const SCENE = `
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="118" end="130" easing="easeInCubic"></w-animate>
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/mesh.png') center/cover no-repeat;opacity:0.35;"></w-el>
+          style="background:url('assets/mesh.webp') center/cover no-repeat;opacity:0.35;"></w-el>
 
     <w-sequence from="10">
       <w-el motion="panel-right" x="96" y="140" width="564" height="440">
@@ -262,7 +262,7 @@ const SCENE = `
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="68" end="80" easing="easeInCubic"></w-animate>
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/horizon.png') center/cover no-repeat;">
+          style="background:url('assets/horizon.webp') center/cover no-repeat;">
       <w-animate property="opacity" from="0" to="0.85" start="0" end="24" easing="easeOutSine"></w-animate>
       <w-animate property="scale" from="1.04" to="1" start="0" end="80" easing="easeOutSine"></w-animate>
     </w-el>

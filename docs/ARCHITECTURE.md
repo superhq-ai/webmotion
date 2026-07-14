@@ -84,6 +84,16 @@ registerComponent("pulse", {
 });
 ```
 
+## Export performance
+
+The HTML backend's export cost is dominated by SVG-image loading: each changed frame becomes a foreignObject SVG that the browser parses, styles, and rasterizes as an isolated document, a fixed ~100ms latency per load largely independent of content size. Three measures keep exports fast (profile any export by setting `window.__WM_PROFILE = true` and reading `window.__wmProfile` after):
+
+- **Pipelined rasterization.** Renderers can implement the `PipelinedRenderer` capability (snapshot / rasterize / present); the exporter keeps several frames' rasterizations in flight, because SVG parsing and image decoding run off the main thread. Snapshots and presents stay strictly in frame order, so output is identical to the sequential path. Window of 8; larger windows regress on decode-pool contention.
+- **Inline-splice caching.** Data-URL embedding of `url()` style references is memoized per style string, so multi-megabyte splices happen once, not per frame.
+- **Unchanged-frame elision.** A frame whose serialized SVG matches the previous one skips rasterization entirely and reuses the cached canvas.
+
+Measured on the launch film (385 frames, 1280×720): 105ms/frame before, 26ms/frame after, ~4x. Directions deliberately not taken: Web Workers cannot touch the DOM or load SVG images, and encoding already runs off-thread in hardware, so workers add no parallelism here (a worker-hosted encoder would only help main-thread responsiveness); WebGPU does not apply to DOM rasterization, which is the browser's own renderer — it becomes relevant as a separate canvas/GPU backend; service workers are network proxies and have no role in this pipeline.
+
 ## Releasing
 
 Publishing runs through npm trusted publishing (OIDC) from `.github/workflows/release.yml`: bump the version, commit, then `git tag vX.Y.Z && git push --tags`. No npm tokens are involved; provenance is attested automatically.

@@ -14,5 +14,5 @@
 
 ## Images
 
-- `hero-orb.png`, `light-ribbons.png`, `aurora.png`, `mesh.png`, `horizon.png`
+- `hero-orb.webp`, `light-ribbons.webp`, `aurora.webp`, `mesh.webp`, `horizon.webp`
   are AI-generated for this project.

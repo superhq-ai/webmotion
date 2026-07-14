@@ -18,6 +18,29 @@ interface RasterizerEntry {
   lastSvg?: string;
 }
 
+// One frame's serialized state; svg is null when the frame is identical to the
+// previous one (or the node has no size) and the cached canvas can be reused.
+export interface RasterSnapshot {
+  entry: RasterizerEntry;
+  svg: string | null;
+}
+
+export interface RasterResult {
+  entry: RasterizerEntry;
+  image: HTMLImageElement | null;
+}
+
+// Opt-in stage profiling: set `window.__WM_PROFILE = true` before an export,
+// read `window.__wmProfile` after. Answers "where does export time go".
+function profAdd(stage: string, ms: number): void {
+  const g = globalThis as Record<string, unknown>;
+  if (g["__WM_PROFILE"] !== true) return;
+  const store = (g["__wmProfile"] ??= {}) as Record<string, { total: number; count: number }>;
+  const entry = (store[stage] ??= { total: 0, count: 0 });
+  entry.total += ms;
+  entry.count += 1;
+}
+
 export class DomRasterizer {
   pixelRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
@@ -43,32 +66,58 @@ export class DomRasterizer {
   // ratio). The canvas is cached per node and reused across frames; an unchanged
   // SVG short circuits the redraw.
   async rasterize(node: HTMLElement): Promise<HTMLCanvasElement> {
+    const snapshot = await this.snapshot(node);
+    const raster = await this.rasterizeSnapshot(snapshot);
+    return this.present(raster);
+  }
+
+  // The pipelined path splits rasterize() into three phases so an export loop
+  // can overlap them across frames: snapshot() must see the DOM in the frame's
+  // state (main thread, sequential); rasterizeSnapshot() is the long pole (the
+  // browser parses the SVG and decodes embedded images off the main thread, so
+  // several can be in flight); present() draws in frame order.
+  async snapshot(node: HTMLElement): Promise<RasterSnapshot> {
     const cssW = node.clientWidth || node.offsetWidth;
     const cssH = node.clientHeight || node.offsetHeight;
     if (cssW === 0 || cssH === 0) {
       const existing = this.entries.get(node);
-      if (existing) return existing.canvas;
-      return this.ensureEntry(node, 1, 1).canvas;
+      const entry = existing ?? this.ensureEntry(node, 1, 1);
+      return { entry, svg: null };
     }
 
     const entry = this.ensureEntry(node, cssW, cssH);
     const dpr = Math.max(1, this.pixelRatio);
-    const pxW = entry.canvas.width;
-    const pxH = entry.canvas.height;
+    const t = performance.now();
     const svg = await this.buildSvg(node, cssW, cssH, dpr);
+    profAdd("buildSvg", performance.now() - t);
 
     if (svg === entry.lastSvg) {
       if (debugHIC) console.log("[html-in-canvas] rasterization skipped (unchanged)");
-      return entry.canvas;
+      return { entry, svg: null };
     }
     if (debugHIC && entry.lastSvg) {
       logSvgDiff(entry.lastSvg, svg);
     }
     entry.lastSvg = svg;
+    return { entry, svg };
+  }
 
-    const image = await loadSvgAsImage(svg, pxW, pxH);
-    entry.context.clearRect(0, 0, pxW, pxH);
-    entry.context.drawImage(image, 0, 0, pxW, pxH);
+  async rasterizeSnapshot(snapshot: RasterSnapshot): Promise<RasterResult> {
+    if (snapshot.svg === null) return { entry: snapshot.entry, image: null };
+    const t = performance.now();
+    const image = await loadSvgAsImage(snapshot.svg, snapshot.entry.cssW, snapshot.entry.cssH);
+    profAdd("svgImageLoad", performance.now() - t);
+    return { entry: snapshot.entry, image };
+  }
+
+  present(raster: RasterResult): HTMLCanvasElement {
+    const { entry, image } = raster;
+    if (image) {
+      const t = performance.now();
+      entry.context.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+      entry.context.drawImage(image, 0, 0, entry.canvas.width, entry.canvas.height);
+      profAdd("drawImage", performance.now() - t);
+    }
     return entry.canvas;
   }
 
@@ -160,9 +209,13 @@ export class DomRasterizer {
     cssH: number,
     _dpr = 1,
   ): Promise<string> {
+    let t = performance.now();
     const clone = await prepareClone(node);
     this.captureDynamicStateOnClone(node, clone);
+    profAdd("prepareClone", performance.now() - t);
+    t = performance.now();
     const innerXml = wrapClone(node, new XMLSerializer().serializeToString(clone));
+    profAdd("serialize", performance.now() - t);
 
     const pageStylesCss = await this.getPageStylesCss();
     const style =
@@ -290,7 +343,9 @@ async function loadSvgAsImage(
   cssW: number,
   cssH: number,
 ): Promise<HTMLImageElement> {
+  const t = performance.now();
   const dataUrl = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  profAdd("percentEncode", performance.now() - t);
   try {
     return await createImage(dataUrl);
   } catch (e) {
@@ -755,9 +810,26 @@ async function inlineExternalImages(root: HTMLElement): Promise<void> {
     styled.map(async (el) => {
       const styleAttr = el.getAttribute("style");
       if (!styleAttr || !styleAttr.includes("url(")) return;
-      el.setAttribute("style", await inlineCssUrls(styleAttr));
+      el.setAttribute("style", await inlineCssUrlsCached(styleAttr));
     }),
   );
+}
+
+// Inlined style strings are identical across frames (only animated properties
+// change, and those never contain url()), so the multi-megabyte splice result
+// is memoized on the input string.
+const inlinedCssCache = new Map<string, Promise<string>>();
+
+async function inlineCssUrlsCached(cssText: string): Promise<string> {
+  let hit = inlinedCssCache.get(cssText);
+  if (!hit) {
+    hit = inlineCssUrls(cssText);
+    inlinedCssCache.set(cssText, hit);
+    hit.catch(() => {
+      if (inlinedCssCache.get(cssText) === hit) inlinedCssCache.delete(cssText);
+    });
+  }
+  return hit;
 }
 
 // Replace every non-data url(...) in a CSS string with a data URL, resolving

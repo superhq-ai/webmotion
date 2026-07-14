@@ -61,7 +61,7 @@ const SCENE = `
     <w-animate property="opacity" from="1" to="0" start="98" end="110" easing="easeInCubic"></w-animate>
 
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/hero-orb.png') center/cover no-repeat;">
+          style="background:url('assets/hero-orb.webp') center/cover no-repeat;">
       <w-animate property="opacity" from="0"    to="1" start="0" end="18" easing="easeOutCubic"></w-animate>
       <w-animate property="scale"   from="1.07" to="1" start="0" end="112" easing="easeOutSine"></w-animate>
     </w-el>
@@ -86,7 +86,7 @@ const SCENE = `
     <w-animate property="opacity" from="1" to="0" start="128" end="140" easing="easeInCubic"></w-animate>
 
     <w-el x="0" y="0" width="1280" height="720"
-          style="background:url('assets/light-ribbons.png') center/cover no-repeat;">
+          style="background:url('assets/light-ribbons.webp') center/cover no-repeat;">
       <w-animate property="opacity" from="0" to="0.45" start="0" end="20" easing="easeOutSine"></w-animate>
     </w-el>
 

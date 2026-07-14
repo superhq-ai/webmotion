@@ -1,6 +1,6 @@
 import type { RenderContext } from "../core/component.js";
 import type { Renderer } from "../render/renderer.js";
-import { DomRasterizer } from "./rasterizer.js";
+import { DomRasterizer, type RasterResult, type RasterSnapshot } from "./rasterizer.js";
 
 export interface HtmlRenderContext extends RenderContext {
   readonly root: HTMLElement;
@@ -22,6 +22,7 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
   private stagingContainer!: HTMLElement;
   private createdContainer = false;
   private rasterizer!: DomRasterizer;
+  private pipelineActive = false;
 
   constructor(width: number, height: number, options: HtmlRendererOptions = {}) {
     this.width = width;
@@ -72,17 +73,40 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
   }
 
   async finishFrame(_globalFrame: number): Promise<void> {
-    await waitForFonts();
+    if (this.pipelineActive) return;
+    const snapshot = await this.snapshotFrame();
+    const raster = await this.rasterizeSnapshot(snapshot);
+    this.presentSnapshot(raster);
+  }
 
-    let rasterized: CanvasImageSource;
+  // Pipelined-export capability (see PipelinedRenderer): the export loop keeps
+  // several rasterizeSnapshot calls in flight, because SVG parsing and image
+  // decoding happen off the main thread and genuinely overlap.
+  beginExportPipeline(): void {
+    this.pipelineActive = true;
+  }
+
+  endExportPipeline(): void {
+    this.pipelineActive = false;
+  }
+
+  async snapshotFrame(): Promise<unknown> {
+    await waitForFonts();
+    return this.rasterizer.snapshot(this.stagingContainer);
+  }
+
+  async rasterizeSnapshot(snapshot: unknown): Promise<unknown> {
     try {
-      rasterized = await this.rasterizer.rasterize(this.stagingContainer);
+      return await this.rasterizer.rasterizeSnapshot(snapshot as RasterSnapshot);
     } catch (error) {
       throw new Error("HtmlRenderer: failed to rasterize HTML for the current frame", {
         cause: error,
       });
     }
+  }
 
+  presentSnapshot(raster: unknown): void {
+    const rasterized = this.rasterizer.present(raster as RasterResult);
     // Clear and composite in one synchronous step, with no await in between, so
     // the visible canvas swaps atomically from the previous frame to this one.
     this.outputCtx.setTransform(1, 0, 0, 1, 0, 0);

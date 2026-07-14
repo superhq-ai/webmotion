@@ -1,4 +1,5 @@
 import type { Runtime } from "../runtime/runtime.js";
+import { isPipelinedRenderer } from "../render/renderer.js";
 import { FrameEncoder, type EncoderConfig } from "./encoder.js";
 import type { VideoMuxer } from "./encoder.js";
 
@@ -40,23 +41,89 @@ export async function exportVideo(runtime: Runtime, options: ExportOptions): Pro
   const encoder = new FrameEncoder(encoderConfig);
 
   try {
-    for (let frame = 0; frame < total; frame++) {
-      throwIfAborted(options.signal);
+    if (isPipelinedRenderer(runtime.renderer)) {
+      await exportPipelined(runtime, encoder, total, keyframeInterval, options);
+    } else {
+      for (let frame = 0; frame < total; frame++) {
+        throwIfAborted(options.signal);
 
-      await runtime.renderFrame(frame);
-      const videoFrame = runtime.capture(frame);
-      if (videoFrame) {
-        const isKeyframe = frame % keyframeInterval === 0;
-        await encoder.encode(videoFrame, isKeyframe);
+        await runtime.renderFrame(frame);
+        const videoFrame = runtime.capture(frame);
+        if (videoFrame) {
+          const isKeyframe = frame % keyframeInterval === 0;
+          await encoder.encode(videoFrame, isKeyframe);
+        }
+
+        options.onProgress?.({ frame: frame + 1, total, progress: (frame + 1) / total });
       }
-
-      options.onProgress?.({ frame: frame + 1, total, progress: (frame + 1) / total });
     }
 
     throwIfAborted(options.signal);
     await encoder.finalize(options.muxer);
   } finally {
     await runtime.destroy();
+  }
+}
+
+// How many frames' rasterizations to keep in flight. Rasterization (SVG parse
+// + image decode) runs off the main thread, so a small window overlaps the
+// long pole across frames without ballooning memory.
+const PIPELINE_WINDOW = 8;
+
+async function exportPipelined(
+  runtime: Runtime,
+  encoder: FrameEncoder,
+  total: number,
+  keyframeInterval: number,
+  options: ExportOptions,
+): Promise<void> {
+  const renderer = runtime.renderer;
+  if (!isPipelinedRenderer(renderer)) throw new Error("renderer lost pipeline capability");
+
+  interface Pending {
+    frame: number;
+    raster: Promise<unknown>;
+  }
+  const inFlight: Pending[] = [];
+
+  // Present, capture, and encode strictly in frame order.
+  const drainTo = async (maxQueued: number): Promise<void> => {
+    while (inFlight.length > maxQueued) {
+      const head = inFlight.shift() as Pending;
+      const raster = await head.raster;
+      renderer.presentSnapshot(raster);
+      const videoFrame = runtime.capture(head.frame);
+      if (videoFrame) {
+        await encoder.encode(videoFrame, head.frame % keyframeInterval === 0);
+      }
+      options.onProgress?.({
+        frame: head.frame + 1,
+        total,
+        progress: (head.frame + 1) / total,
+      });
+    }
+  };
+
+  renderer.beginExportPipeline();
+  try {
+    for (let frame = 0; frame < total; frame++) {
+      throwIfAborted(options.signal);
+
+      // Components mutate the surface state; finishFrame is a no-op while the
+      // pipeline is active, so the frame is serialized here instead.
+      await runtime.renderFrame(frame);
+      const snapshot = await renderer.snapshotFrame();
+      const raster = renderer.rasterizeSnapshot(snapshot);
+      // Rejections surface at drain; this guard keeps them from being
+      // reported as unhandled while queued.
+      raster.catch(() => {});
+      inFlight.push({ frame, raster });
+
+      await drainTo(PIPELINE_WINDOW - 1);
+    }
+    await drainTo(0);
+  } finally {
+    renderer.endExportPipeline();
   }
 }
 
