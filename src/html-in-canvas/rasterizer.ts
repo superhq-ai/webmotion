@@ -227,6 +227,24 @@ function logSvgDiff(oldSvg: string, newSvg: string): void {
   console.log("[html-in-canvas] SVG changed:\n" + diffs.join("\n"));
 }
 
+// Inheritable properties bridged from the live container onto the clone root.
+// The clone is rasterized without its ancestors, so anything the container
+// inherits from above (a page rule on the composition element, body styles)
+// would silently reset to UA defaults in the SVG document.
+const INHERITED_PROPS = [
+  "color",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "line-height",
+  "letter-spacing",
+  "text-align",
+  "word-spacing",
+  "text-transform",
+  "direction",
+] as const;
+
 async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   const clone = node.cloneNode(true) as HTMLElement;
   syncFormState(node, clone);
@@ -234,6 +252,12 @@ async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   clone.style.removeProperty("transform");
   clone.style.opacity = "1";
   clone.style.visibility = "visible";
+  const cs = getComputedStyle(node);
+  for (const prop of INHERITED_PROPS) {
+    if (!clone.style.getPropertyValue(prop)) {
+      clone.style.setProperty(prop, cs.getPropertyValue(prop));
+    }
+  }
   await inlineExternalImages(clone);
   clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
   return clone;
@@ -312,6 +336,9 @@ async function collectAndInlinePageStyles(): Promise<string> {
         return url;
       }
     });
+    // embedUrlRefs only sees absolute http(s) URLs; relative url() references
+    // (same-origin images, fonts) need embedding too.
+    combined = await inlineCssUrls(combined);
   } catch (e) {
     console.warn("[html-in-canvas] URL embedding failed", e);
     combined = sheets.join("\n");
@@ -719,4 +746,37 @@ async function inlineExternalImages(root: HTMLElement): Promise<void> {
       }
     }),
   );
+
+  // Inline-style url() references (background images etc.). The SVG document is
+  // a data URL with no base, so relative and same-origin URLs resolve to
+  // nothing there; embed them as data URLs.
+  const styled = [root, ...Array.from(root.querySelectorAll<HTMLElement>("[style*='url(']"))];
+  await Promise.all(
+    styled.map(async (el) => {
+      const styleAttr = el.getAttribute("style");
+      if (!styleAttr || !styleAttr.includes("url(")) return;
+      el.setAttribute("style", await inlineCssUrls(styleAttr));
+    }),
+  );
+}
+
+// Replace every non-data url(...) in a CSS string with a data URL, resolving
+// relative references against the document base. Failures leave the original
+// reference in place.
+async function inlineCssUrls(cssText: string): Promise<string> {
+  const matches = Array.from(cssText.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g));
+  for (const m of matches) {
+    const ref = m[2];
+    if (!ref || ref.startsWith("data:") || ref.startsWith("#")) continue;
+    // W3C namespace URIs are identifiers, not fetchable resources.
+    if (ref.startsWith("http://www.w3.org/")) continue;
+    try {
+      const abs = new URL(ref, document.baseURI).href;
+      const dataUrl = await fetchAsDataUrl(abs);
+      cssText = cssText.split(m[0]).join(`url("${dataUrl}")`);
+    } catch (e) {
+      console.warn("[html-in-canvas] failed to inline css url", ref, e);
+    }
+  }
+  return cssText;
 }
