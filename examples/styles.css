@@ -1,0 +1,355 @@
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --faint: #86868b;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.14);
+  --chip: #ececee;
+  --chip-hover: #e4e4e7;
+  --chip-active: #dcdce0;
+  --accent: #0071e3;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --shadow-stage: 0 14px 34px -18px rgba(20, 24, 40, 0.22), 0 2px 6px -2px rgba(20, 24, 40, 0.06);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.app {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Top bar */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px clamp(16px, 5vw, 44px);
+  background: rgba(245, 245, 247, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.brand-mark {
+  color: var(--ink);
+}
+
+/* Segmented tab control */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 980px;
+}
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 7px 16px;
+  border-radius: 980px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Main / player */
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: clamp(14px, 2.5vw, 28px) clamp(16px, 5vw, 44px);
+}
+.player {
+  width: 100%;
+  max-width: 1120px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Fixed height and a single-line blurb so the video area is identical on every
+   demo. A variable header height would resize the video from page to page. */
+.demo-head {
+  flex: none;
+  height: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 3px;
+}
+.demo-head h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.demo-head p {
+  margin: 0;
+  max-width: 100%;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The stage area fills the space between the header and the controls, and the
+   canvas fits inside it by both width and height while keeping its aspect ratio.
+   The visual chrome sits on the canvas itself so the frame hugs the video rather
+   than stretching into a larger empty box. */
+.stage-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas.stage {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-stage);
+  border: 1px solid var(--line);
+}
+
+/* Chapter timeline */
+.timeline {
+  position: relative;
+  padding-top: 14px;
+  flex: none;
+}
+.chapters {
+  display: flex;
+  gap: 6px;
+}
+.chapter {
+  appearance: none;
+  border: none;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 68px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--chip);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  overflow: hidden;
+}
+.chapter:hover {
+  background: var(--chip-hover);
+}
+.chapter.active {
+  background: var(--chip-active);
+  color: var(--ink);
+}
+.chapter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Playhead line + time bubble, drawn over the chapters */
+.playhead {
+  position: absolute;
+  top: 14px;
+  bottom: 0;
+  width: 0;
+  border-left: 1.5px solid var(--ink);
+  pointer-events: none;
+  transition: left 0.03s linear;
+}
+.playhead-time {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 7px;
+  border-radius: 980px;
+  white-space: nowrap;
+}
+/* Transparent range overlay makes the whole timeline scrubbable and keyboard accessible */
+.seek {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  width: 100%;
+  height: 68px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Transport bar */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  padding-bottom: 4px;
+}
+.play-btn {
+  appearance: none;
+  border: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+.play-btn:hover {
+  opacity: 0.85;
+}
+.play-btn:active {
+  transform: scale(0.94);
+}
+.play-btn svg {
+  margin-left: 1px;
+}
+.play-btn.is-playing svg {
+  margin-left: 0;
+}
+
+.time {
+  display: flex;
+  gap: 7px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.time-cur {
+  color: var(--ink);
+  font-weight: 500;
+}
+.time-sep {
+  color: var(--faint);
+}
+
+.transport-spacer {
+  flex: 1;
+}
+
+.status {
+  font-size: 14px;
+  color: var(--muted);
+  min-height: 1em;
+}
+
+.export-btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 18px;
+  border-radius: 980px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.export-btn:hover:not(:disabled) {
+  background: #f0f0f2;
+}
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dl {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.dl:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .tabs {
+    overflow-x: auto;
+  }
+  .chapter {
+    height: 56px;
+    font-size: 12px;
+  }
+}
