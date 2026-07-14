@@ -227,11 +227,9 @@ canvas.stage {
   border-radius: var(--radius-md);
   border: 1px solid var(--line);
 }
-/* Element-backed stage (<w-composition>). The shell stretches to the available
-   height and derives its width from the composition's aspect ratio (set inline),
-   clamped to the pane; the element then scales itself to the shell's width. */
+/* Element-backed stage (<w-composition>). The player sizes the shell's width
+   to fit the pane; the element then scales itself to the shell's width. */
 .stage-shell {
-  align-self: stretch;
   max-width: 100%;
   min-width: 0;
   display: flex;

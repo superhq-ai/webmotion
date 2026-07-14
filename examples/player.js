@@ -113,20 +113,36 @@ export function mountPlayer(mountEl, demo) {
   if (created.element) {
     const el = created.element;
     el.classList.add("stage-element");
-    // The element scales itself to its own width, so a shell with the
-    // composition's aspect ratio constrains that width by the available height.
+    // The element scales itself to its own width, so the shell's width decides
+    // the stage size. Sized in JS: deriving width from height via aspect-ratio
+    // inside a flex item is not portable (WebKit resolves it to zero).
     const shell = document.createElement("div");
     shell.className = "stage-shell";
-    shell.style.aspectRatio = `${composition.width} / ${composition.height}`;
     shell.appendChild(el);
     stageHost.replaceWith(shell);
+
+    const frameEl = shell.parentElement;
+    const fitShell = () => {
+      const cs = getComputedStyle(frameEl);
+      const availW = frameEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = frameEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const w = Math.min(availW, (availH * composition.width) / composition.height);
+      shell.style.width = `${Math.max(0, Math.floor(w))}px`;
+    };
+    fitShell();
+    const shellObserver = new ResizeObserver(fitShell);
+    shellObserver.observe(frameEl);
+
     preview = {
       // Setup is deferred to a frame after connect, so wait before seeking.
       renderFrame: async (frame) => {
         await el.ready;
         el.seek(frame);
       },
-      destroy: () => shell.remove(),
+      destroy: () => {
+        shellObserver.disconnect();
+        shell.remove();
+      },
     };
   } else {
     stageHost.width = composition.width;
