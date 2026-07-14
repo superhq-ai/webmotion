@@ -147,6 +147,7 @@ class PromptComposer {
 
 export default {
   id: "product-ui",
+  kind: "HTML in canvas",
   title: "Product UI",
   blurb: "A real DOM and CSS interface, rasterized to video via foreignObject.",
   downloadName: "webmotion-product.mp4",

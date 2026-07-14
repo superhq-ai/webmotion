@@ -7,9 +7,9 @@
   </head>
   <body>
     <div class="app">
-      <header class="topbar">
+      <aside class="sidebar">
         <div class="brand">
-          <svg class="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <svg class="brand-mark" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path
               d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"
               stroke="currentColor"
@@ -19,8 +19,15 @@
           </svg>
           <span>WebMotion</span>
         </div>
-        <nav class="tabs" id="demo-nav"></nav>
-      </header>
+
+        <div class="sidebar-label">Examples</div>
+        <nav class="demo-nav" id="demo-nav"></nav>
+
+        <div class="sidebar-foot">
+          <a href="https://github.com/superhq-ai/webmotion" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://www.npmjs.com/package/@superhq/webmotion" target="_blank" rel="noreferrer">npm</a>
+        </div>
+      </aside>
 
       <main class="main">
         <div id="stage-mount" class="player"></div>

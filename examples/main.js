@@ -5,16 +5,18 @@ import "./styles.css";
 const nav = document.getElementById("demo-nav");
 const stage = document.getElementById("stage-mount");
 
-// Build the segmented tab control.
+// Build the sidebar list. Order comes from demos/index.js; first is default.
 for (const demo of demos) {
-  const tab = document.createElement("button");
-  tab.className = "tab";
-  tab.dataset.id = demo.id;
-  tab.textContent = demo.title;
-  tab.addEventListener("click", () => {
+  const item = document.createElement("button");
+  item.className = "nav-item";
+  item.dataset.id = demo.id;
+  item.innerHTML = `<span class="nav-name"></span><span class="nav-kind"></span>`;
+  item.querySelector(".nav-name").textContent = demo.title;
+  item.querySelector(".nav-kind").textContent = demo.kind ?? "";
+  item.addEventListener("click", () => {
     location.hash = demo.id;
   });
-  nav.appendChild(tab);
+  nav.appendChild(item);
 }
 
 let current = null;
@@ -22,7 +24,7 @@ let current = null;
 function select(id) {
   const demo = demoById.get(id) ?? demos[0];
 
-  for (const el of nav.querySelectorAll(".tab")) {
+  for (const el of nav.querySelectorAll(".nav-item")) {
     el.classList.toggle("active", el.dataset.id === demo.id);
   }
 

@@ -1,32 +1,27 @@
 :root {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
+  --bg: #ffffff;
+  --panel: #fafafa;
   --ink: #1d1d1f;
   --muted: #6e6e73;
   --faint: #86868b;
-  --line: rgba(0, 0, 0, 0.08);
-  --line-strong: rgba(0, 0, 0, 0.14);
-  --chip: #ececee;
-  --chip-hover: #e4e4e7;
-  --chip-active: #dcdce0;
+  --line: rgba(0, 0, 0, 0.1);
+  --chip: #f0f0f2;
+  --chip-hover: #e8e8ea;
+  --chip-active: #e0e0e3;
   --accent: #0071e3;
-  --radius-lg: 18px;
-  --radius-md: 14px;
-  --shadow-stage: 0 14px 34px -18px rgba(20, 24, 40, 0.22), 0 2px 6px -2px rgba(20, 24, 40, 0.06);
+  --radius-md: 10px;
+  --radius-sm: 8px;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial,
     sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
 body {
   margin: 0;
-}
-
-body {
   font-family: var(--font);
   color: var(--ink);
   background: var(--bg);
@@ -34,131 +29,194 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Shell: fixed sidebar, full-bleed player. Paper look: flat surfaces divided by
+   hairlines, no shadows anywhere. */
 .app {
   height: 100vh;
   height: 100dvh;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-/* Top bar */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  flex: none;
   display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 16px clamp(16px, 5vw, 44px);
-  background: rgba(245, 245, 247, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 9px;
+  padding: 18px 18px 14px;
   font-weight: 600;
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: -0.01em;
 }
 .brand-mark {
   color: var(--ink);
 }
 
-/* Segmented tab control */
-.tabs {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 980px;
-}
-.tab {
-  appearance: none;
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted);
-  padding: 7px 16px;
-  border-radius: 980px;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-  white-space: nowrap;
-}
-.tab:hover {
-  color: var(--ink);
-}
-.tab.active {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.sidebar-label {
+  padding: 10px 18px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
 }
 
-/* Main / player */
-.main {
+.demo-nav {
   flex: 1;
   min-height: 0;
-  display: flex;
-  justify-content: center;
-  padding: clamp(14px, 2.5vw, 28px) clamp(16px, 5vw, 44px);
-}
-.player {
-  width: 100%;
-  max-width: 1120px;
-  height: 100%;
-  min-height: 0;
+  overflow-y: auto;
+  padding: 0 10px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s ease;
+}
+.nav-item:hover {
+  background: var(--chip);
+}
+.nav-item.active {
+  background: var(--chip-active);
+}
+.nav-name {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.nav-kind {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sidebar-foot {
+  display: flex;
   gap: 14px;
-  /* When flex:none panels (e.g. the source panel) outgrow the pane, scroll
-     rather than squeezing the stage to nothing. */
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+.sidebar-foot a {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.sidebar-foot a:hover {
+  color: var(--ink);
+}
+
+/* Main pane */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.player {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
 }
 
-/* Fixed height and a single-line blurb so the video area is identical on every
-   demo. A variable header height would resize the video from page to page. */
+/* Header: title + blurb left, export right. One slim row. */
 .demo-head {
   flex: none;
-  height: 62px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 3px;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.demo-title {
+  min-width: 0;
 }
 .demo-head h2 {
   margin: 0;
-  font-size: 23px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 .demo-head p {
-  margin: 0;
-  max-width: 100%;
-  font-size: 15px;
-  line-height: 1.3;
+  margin: 1px 0 0;
+  font-size: 12.5px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.demo-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-/* The stage area fills the space between the header and the controls, and the
-   canvas fits inside it by both width and height while keeping its aspect ratio.
-   The visual chrome sits on the canvas itself so the frame hugs the video rather
-   than stretching into a larger empty box. */
+.status {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dl {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.dl:hover {
+  text-decoration: underline;
+}
+
+.export-btn {
+  padding: 6px 14px;
+  border-radius: 980px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: opacity 0.12s ease;
+}
+.export-btn:hover {
+  opacity: 0.85;
+}
+.export-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Stage */
 .stage-frame {
   flex: 1;
   min-height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 canvas.stage {
   display: block;
@@ -166,9 +224,7 @@ canvas.stage {
   max-height: 100%;
   width: auto;
   height: auto;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-stage);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
 }
 /* Element-backed stage (<w-composition>). The shell stretches to the available
@@ -183,41 +239,76 @@ canvas.stage {
   justify-content: center;
 }
 .stage-element {
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-stage);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
 }
 
-/* Chapter timeline */
-.timeline {
-  position: relative;
-  padding-top: 14px;
+/* Controls: one slim bar. Play, time, then the chaptered track. */
+.controls {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.play-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  transition: opacity 0.12s ease;
+}
+.play-btn:hover {
+  opacity: 0.85;
+}
+.play-btn svg {
+  display: block;
+}
+
+.time {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 5px;
+}
+.time-cur {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* The track: chapter segments with a playhead line and an invisible range
+   overlay that keeps the whole thing scrubbable and keyboard accessible. */
+.track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 .chapters {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 .chapter {
-  appearance: none;
-  border: none;
   flex: 1 1 0;
   min-width: 0;
-  height: 68px;
-  padding: 10px;
-  border-radius: 12px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
   background: var(--chip);
   color: var(--muted);
-  font: inherit;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 500;
-  line-height: 1.2;
   display: flex;
-  align-items: flex-end;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  align-items: center;
   overflow: hidden;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 .chapter:hover {
   background: var(--chip-hover);
@@ -233,144 +324,34 @@ canvas.stage {
   max-width: 100%;
 }
 
-/* Playhead line + time bubble, drawn over the chapters */
 .playhead {
   position: absolute;
-  top: 14px;
-  bottom: 0;
+  top: -3px;
+  bottom: -3px;
   width: 0;
   border-left: 1.5px solid var(--ink);
   pointer-events: none;
   transition: left 0.03s linear;
 }
-.playhead-time {
-  position: absolute;
-  top: -4px;
-  left: 50%;
-  transform: translate(-50%, -100%);
-  background: var(--ink);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 7px;
-  border-radius: 980px;
-  white-space: nowrap;
-}
-/* Transparent range overlay makes the whole timeline scrubbable and keyboard accessible */
+
 .seek {
   position: absolute;
-  top: 14px;
-  left: 0;
+  inset: 0;
   width: 100%;
-  height: 68px;
+  height: 100%;
   margin: 0;
   opacity: 0;
   cursor: pointer;
 }
 
-/* Transport bar */
-.transport {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: none;
-  padding-bottom: 4px;
-}
-.play-btn {
-  appearance: none;
-  border: none;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  flex: none;
-  transition: transform 0.1s ease, opacity 0.15s ease;
-}
-.play-btn:hover {
-  opacity: 0.85;
-}
-.play-btn:active {
-  transform: scale(0.94);
-}
-.play-btn svg {
-  margin-left: 1px;
-}
-.play-btn.is-playing svg {
-  margin-left: 0;
-}
-
-.time {
-  display: flex;
-  gap: 7px;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-}
-.time-cur {
-  color: var(--ink);
-  font-weight: 500;
-}
-.time-sep {
-  color: var(--faint);
-}
-
-.transport-spacer {
-  flex: 1;
-}
-
-.status {
-  font-size: 14px;
-  color: var(--muted);
-  min-height: 1em;
-}
-
-.export-btn {
-  appearance: none;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 9px 18px;
-  border-radius: 980px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.export-btn:hover:not(:disabled) {
-  background: #f0f0f2;
-}
-.export-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.dl {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-.dl:hover {
-  text-decoration: underline;
-}
-
 /* Collapsible markup panel for declarative demos */
 .source {
   flex: none;
-  margin-top: 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  overflow: hidden;
+  border-top: 1px solid var(--line);
 }
 .source summary {
-  padding: 10px 16px;
-  font-size: 13px;
+  padding: 10px 20px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--muted);
   cursor: pointer;
@@ -381,27 +362,50 @@ canvas.stage {
 }
 .source pre {
   margin: 0;
-  padding: 4px 16px 14px;
+  padding: 2px 20px 16px;
   max-height: 260px;
   overflow: auto;
   font-size: 12px;
   line-height: 1.55;
-  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-family: var(--mono);
   color: var(--ink);
   tab-size: 2;
 }
 
-@media (max-width: 680px) {
-  .topbar {
+/* Narrow screens: sidebar becomes a top strip with a horizontal demo list. */
+@media (max-width: 720px) {
+  .app {
     flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
   }
-  .tabs {
+  .sidebar {
+    width: 100%;
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    padding: 12px 14px;
+  }
+  .sidebar-label,
+  .sidebar-foot {
+    display: none;
+  }
+  .demo-nav {
+    flex-direction: row;
+    padding: 8px 10px;
+    gap: 4px;
     overflow-x: auto;
+    overflow-y: hidden;
   }
-  .chapter {
-    height: 56px;
-    font-size: 12px;
+  .nav-item {
+    flex: none;
+  }
+  .nav-kind {
+    display: none;
+  }
+  .demo-head p {
+    display: none;
   }
 }

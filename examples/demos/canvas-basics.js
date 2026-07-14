@@ -67,6 +67,7 @@ class TitleCard {
 
 export default {
   id: "title-card",
+  kind: "Canvas 2D",
   title: "Title card",
   blurb: "Kinetic typography drawn straight to 2D canvas.",
   downloadName: "webmotion-title.mp4",

@@ -190,6 +190,7 @@ class WebMotionInWebMotion {
 
 export default {
   id: "inside-webmotion",
+  kind: "HTML in canvas",
   title: "Inception",
   blurb: "The WebMotion editor, composed as a video by WebMotion itself.",
   downloadName: "webmotion-inception.mp4",

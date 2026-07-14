@@ -71,6 +71,7 @@ const SCENE = `
 
 export default {
   id: "declarative",
+  kind: "Elements",
   title: "Declarative HTML",
   blurb:
     "This scene is markup, not code. Named animations live in &lt;w-defs&gt;, elements " +

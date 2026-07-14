@@ -64,27 +64,29 @@ export function mountPlayer(mountEl, demo) {
 
   mountEl.innerHTML = `
     <header class="demo-head">
-      <h2>${demo.title}</h2>
-      <p>${demo.blurb}</p>
+      <div class="demo-title">
+        <h2>${demo.title}</h2>
+        <p>${demo.blurb}</p>
+      </div>
+      <div class="demo-actions">
+        <span class="status"></span>
+        <button class="export-btn">Export MP4</button>
+      </div>
     </header>
 
     <div class="stage-frame">
       <canvas class="stage"></canvas>
     </div>
 
-    <div class="timeline">
-      <div class="chapters">${chapterMarkup}</div>
-      <div class="playhead"><span class="playhead-time">0:00</span></div>
-      <input class="seek" type="range" min="0" max="${lastFrame}" step="1" value="0"
-             aria-label="Seek" />
-    </div>
-
-    <div class="transport">
+    <div class="controls">
       <button class="play-btn" aria-label="Play">${PLAY_ICON}</button>
       <div class="time"><span class="time-cur">0:00</span><span class="time-sep">/</span><span class="time-dur">${formatTime(lastFrame, composition.fps)}</span></div>
-      <div class="transport-spacer"></div>
-      <span class="status"></span>
-      <button class="export-btn">Export MP4</button>
+      <div class="track">
+        <div class="chapters">${chapterMarkup}</div>
+        <div class="playhead"></div>
+        <input class="seek" type="range" min="0" max="${lastFrame}" step="1" value="0"
+               aria-label="Seek" />
+      </div>
     </div>
 
     ${demo.source ? `<details class="source"><summary>View the HTML</summary><pre><code></code></pre></details>` : ""}
@@ -101,7 +103,6 @@ export function mountPlayer(mountEl, demo) {
   const exportBtn = mountEl.querySelector(".export-btn");
   const status = mountEl.querySelector(".status");
   const playhead = mountEl.querySelector(".playhead");
-  const playheadTime = mountEl.querySelector(".playhead-time");
   const timeCur = mountEl.querySelector(".time-cur");
   const chapterEls = [...mountEl.querySelectorAll(".chapter")];
 
@@ -144,9 +145,7 @@ export function mountPlayer(mountEl, demo) {
     const pct = lastFrame > 0 ? (frame / lastFrame) * 100 : 0;
     seek.value = String(frame);
     playhead.style.left = `${pct}%`;
-    const t = formatTime(frame, composition.fps);
-    playheadTime.textContent = t;
-    timeCur.textContent = t;
+    timeCur.textContent = formatTime(frame, composition.fps);
     for (const el of chapterEls) {
       const i = Number(el.dataset.index);
       const ch = chapters[i];
