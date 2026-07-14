@@ -116,14 +116,17 @@ function componentAttrs(el: HTMLElement): string[] {
   return names;
 }
 
-// Behavior, definition, and audio nodes: never rendered, never walked as
-// entities. <w-audio> tweens (gain) belong to the audio engine, not the walk.
+// Behavior, definition, audio, and template nodes: never rendered, never
+// walked as entities. <w-audio> tweens (gain) belong to the audio engine;
+// <w-for>/<w-data> subtrees are template content.
 function isInert(tagName: string): boolean {
   return (
     tagName === "W-ANIMATE" ||
     tagName === "W-DEFS" ||
     tagName === "W-ANIMATION" ||
-    tagName === "W-AUDIO"
+    tagName === "W-AUDIO" ||
+    tagName === "W-FOR" ||
+    tagName === "W-DATA"
   );
 }
 

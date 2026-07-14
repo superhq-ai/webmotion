@@ -63,6 +63,8 @@ Import once, then the scene is markup:
 | `<w-animate>` | `property` `from` `to` `start` `end` `easing` | One tween. As a child of an entity it animates that entity. Renders nothing. |
 | `<w-defs>` / `<w-animation name>` | — / `name` | Named animation definitions (groups of `<w-animate>`), inert. |
 | `<w-audio>` | `src` `from` `duration` `offset` (frames into source) `gain` | A sound clip on the timeline, inert. Participates in sequence time like visuals; `gain` animates via `<w-animate property="gain">` (local frames, replaces the base attribute). Full spec: docs/AUDIO.md. |
+| `<w-data>` | `name` | Named JSON data (element text content), for `<w-for>`. Inert. |
+| `<w-for>` | `each` (array path) or `count` (number), `as` (default `item`), `index` (default `i`) | Repetition by macro expansion at setup: children are stamped once per item with `{...}` placeholders substituted. Full spec: docs/TEMPLATE.md. |
 
 All entities are absolutely positioned by `x`/`y`/`width`/`height` in composition pixels.
 
@@ -126,6 +128,19 @@ For DOM-rendered components use `HtmlRenderer` from `@superhq/webmotion/html-in-
 ## Recipes and craft
 
 See [references/recipes.md](references/recipes.md) for complete, launch-quality scene patterns: staged typography, Ken Burns imagery, feature-line stagger, end cards, and pacing/easing guidance.
+
+### Repetition
+
+```html
+<w-data name="features">["Deterministic.", "Browser-native.", "No render farm."]</w-data>
+<w-for each="features" as="line">
+  <w-sequence from="{6 + i * 30}">
+    <w-text class="feature" motion="beat-in" x="0" y="{250 + i * 80}" width="1280">{line}</w-text>
+  </w-sequence>
+</w-for>
+```
+
+`{...}` placeholders are data paths plus `+ - * /` arithmetic, nothing else (no calls, no eval). Expansion stamps real elements once at setup; there is no reactivity. For data-dependent structure beyond repetition, generate markup in JS.
 
 ### Sound
 

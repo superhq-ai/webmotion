@@ -28,6 +28,7 @@ Composition ── Timeline (frame clock)
 | Offline export loop | `export/exporter` | ✅ (browser) |
 | Declarative custom elements (`<w-*>`) | `elements/*` | ✅ tested |
 | Audio timeline + WebAudio mixdown | `audio/*` | ✅ tested |
+| Template expansion (`<w-for>`, `<w-data>`) | `elements/template` | ✅ tested |
 
 The browser-only pieces (canvas capture → WebCodecs → mux) run behind the same `Renderer` interface the unit tests drive via a `NullRenderer`, so the frame logic is identical in Node and the browser.
 

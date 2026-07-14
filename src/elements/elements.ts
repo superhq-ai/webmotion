@@ -3,6 +3,7 @@ import { applyFrame } from "./registry.js";
 import { exportComposition, type ExportOptions } from "./export.js";
 import { collectAudioClips } from "../audio/schedule.js";
 import { loadClipBuffers, scheduleClips, type ScheduledAudio } from "../audio/engine.js";
+import { expandTemplates } from "./template.js";
 
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
 // base opacity; animated transforms and opacity are layered on per frame by the
@@ -100,6 +101,8 @@ class WAnimate extends WInert {}
 class WDefs extends WInert {}
 class WAnimation extends WInert {}
 class WAudio extends WInert {}
+class WFor extends WInert {}
+class WData extends WInert {}
 
 // The composition root. Owns the frame clock, sizes and scales the stage to fit,
 // and drives preview, seeking, and MP4 export.
@@ -158,6 +161,10 @@ class WComposition extends HTMLElement {
       const tpl = document.querySelector(tplSel);
       if (tpl instanceof HTMLTemplateElement) this.appendChild(tpl.content.cloneNode(true));
     }
+
+    // Expand <w-for> repetition against <w-data>. Once, before the first frame;
+    // see docs/TEMPLATE.md.
+    expandTemplates(this);
 
     // Move authored children into a fixed-size stage that we scale to fit.
     this.stage = document.createElement("div");
@@ -339,6 +346,8 @@ export function defineElements(): void {
     ["w-defs", WDefs],
     ["w-animation", WAnimation],
     ["w-audio", WAudio],
+    ["w-for", WFor],
+    ["w-data", WData],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);

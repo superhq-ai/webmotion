@@ -51,40 +51,28 @@ const SCENE = `
   </w-el>
 </w-sequence>
 
-<!-- Beat 2: three counters, staggered by structure -->
+<!-- Beat 2: three counters from one template, staggered by the loop index -->
+<w-data name="stats">[
+  { "to": 99.99, "decimals": 2, "suffix": "%",      "label": "uptime",          "fade": "#6f92ff, #a97dff" },
+  { "to": 12480, "decimals": 0, "suffix": "",       "label": "renders per day", "fade": "#a97dff, #ff7dc7" },
+  { "to": 4.8,   "decimals": 1, "suffix": "&#215;", "label": "faster exports",  "fade": "#7dd8ff, #6f92ff" }
+]</w-data>
+
 <w-sequence from="72" duration="132">
   <w-el x="0" y="0" width="1280" height="720">
     <w-animate property="opacity" from="1" to="0" start="118" end="130" easing="easeInCubic"></w-animate>
 
-    <w-sequence from="0">
-      <w-el motion="beat-in" x="53" y="248" width="320" height="240">
-        <w-rect motion="rule-in" x="140" y="0" width="40" height="4" radius="2"
-                fill="linear-gradient(90deg, #6f92ff, #a97dff)"></w-rect>
-        <w-text class="num" x="0" y="42" width="320"
-                count="to: 99.99; decimals: 2; suffix: %; start: 8; end: 56"></w-text>
-        <w-text class="label" x="0" y="168" width="320">uptime</w-text>
-      </w-el>
-    </w-sequence>
-
-    <w-sequence from="10">
-      <w-el motion="beat-in" x="480" y="248" width="320" height="240">
-        <w-rect motion="rule-in" x="140" y="0" width="40" height="4" radius="2"
-                fill="linear-gradient(90deg, #a97dff, #ff7dc7)"></w-rect>
-        <w-text class="num" x="0" y="42" width="320"
-                count="to: 12480; start: 8; end: 56"></w-text>
-        <w-text class="label" x="0" y="168" width="320">renders per day</w-text>
-      </w-el>
-    </w-sequence>
-
-    <w-sequence from="20">
-      <w-el motion="beat-in" x="907" y="248" width="320" height="240">
-        <w-rect motion="rule-in" x="140" y="0" width="40" height="4" radius="2"
-                fill="linear-gradient(90deg, #7dd8ff, #6f92ff)"></w-rect>
-        <w-text class="num" x="0" y="42" width="320"
-                count="to: 4.8; decimals: 1; suffix: &#215;; start: 8; end: 56"></w-text>
-        <w-text class="label" x="0" y="168" width="320">faster exports</w-text>
-      </w-el>
-    </w-sequence>
+    <w-for each="stats" as="stat">
+      <w-sequence from="{i * 10}">
+        <w-el motion="beat-in" x="{53 + i * 427}" y="248" width="320" height="240">
+          <w-rect motion="rule-in" x="140" y="0" width="40" height="4" radius="2"
+                  fill="linear-gradient(90deg, {stat.fade})"></w-rect>
+          <w-text class="num" x="0" y="42" width="320"
+                  count="to: {stat.to}; decimals: {stat.decimals}; suffix: {stat.suffix}; start: 8; end: 56"></w-text>
+          <w-text class="label" x="0" y="168" width="320">{stat.label}</w-text>
+        </w-el>
+      </w-sequence>
+    </w-for>
   </w-el>
 </w-sequence>
 
