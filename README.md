@@ -84,7 +84,7 @@ const runtime = new Runtime({
 await runtime.renderFrame(30); // draws exactly frame 30, every time
 ```
 
-Prefer real DOM over canvas drawing? The `@superhq/webmotion/html-in-canvas` backend renders live HTML and rasterizes it per frame. See the [architecture notes](./docs/ARCHITECTURE.md) for that and everything else under the hood.
+Prefer real DOM over canvas drawing? The `@superhq/webmotion/html-in-canvas` backend renders live HTML and rasterizes it per frame. It is named after, and tracks, the [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas): today a foreignObject rasterizer stands in as the polyfill, and the native APIs take over when browsers ship them. See the [architecture notes](./docs/ARCHITECTURE.md) for that and everything else.
 
 ## Demos
 

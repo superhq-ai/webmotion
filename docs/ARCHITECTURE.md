@@ -38,7 +38,7 @@ WebGL / WebGPU backends, WebM muxing, Web Worker export, audio in the programmat
 
 ## The HTML backend
 
-`@superhq/webmotion/html-in-canvas` rasterizes a live DOM subtree into a canvas through an SVG `foreignObject`, driven by WebMotion's own `DomRasterizer`. That rasterizer is a derivative work adapted from repalash's MIT-licensed `three-html-render` and `ts-browser-helpers`; see `src/html-in-canvas/CREDITS.md`.
+`@superhq/webmotion/html-in-canvas` is named after the [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas), which specifies native APIs for drawing live HTML into a canvas. WebMotion tracks that proposal: today the backend rasterizes a live DOM subtree through an SVG `foreignObject` as a polyfill, and the native APIs (`drawElementImage` and friends) replace the foreignObject path once browsers ship them, keeping the same `Renderer` interface. The current rasterizer is a derivative work adapted from repalash's MIT-licensed `three-html-render` and `ts-browser-helpers`; see `src/html-in-canvas/CREDITS.md`.
 
 ```ts
 import { Composition, Runtime, Layer } from "@superhq/webmotion";
