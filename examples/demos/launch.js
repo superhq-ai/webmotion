@@ -90,15 +90,16 @@ const SCENE = `
       <w-animate property="opacity" from="0" to="0.45" start="0" end="20" easing="easeOutSine"></w-animate>
     </w-el>
 
-    <w-sequence from="6">
-      <w-text class="feature" motion="beat-in" x="0" y="250" width="1280">Deterministic to the frame.</w-text>
-    </w-sequence>
-    <w-sequence from="36">
-      <w-text class="feature" motion="beat-in" x="0" y="330" width="1280">Native to the browser.</w-text>
-    </w-sequence>
-    <w-sequence from="66">
-      <w-text class="feature" motion="beat-in" x="0" y="410" width="1280">Zero render farm.</w-text>
-    </w-sequence>
+    <w-data name="features">[
+      "Deterministic to the frame.",
+      "Native to the browser.",
+      "Zero render farm."
+    ]</w-data>
+    <w-for each="features" as="line">
+      <w-sequence from="{6 + i * 30}">
+        <w-text class="feature" motion="beat-in" x="0" y="{250 + i * 80}" width="1280">{line}</w-text>
+      </w-sequence>
+    </w-for>
   </w-el>
 </w-sequence>
 

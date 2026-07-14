@@ -158,16 +158,26 @@ const SCENE = `
               <div class="nav">Cycles</div><div class="nav">Releases</div><div class="nav">People</div>
             </div>
             <div class="mainpane">
+              <w-data name="tiles">[
+                { "count": "to: 24; start: 20; end: 52",                          "label": "active streams" },
+                { "count": "to: 132; start: 20; end: 56",                        "label": "shipped this quarter" },
+                { "count": "to: 99.98; decimals: 2; suffix: %; start: 20; end: 60", "label": "uptime" }
+              ]</w-data>
+              <w-data name="tasks">[
+                { "name": "Realtime sync engine",    "av": "",  "pill": "ship", "status": "shipped" },
+                { "name": "Mobile command bar",      "av": "b", "pill": "prog", "status": "in progress" },
+                { "name": "Workspace insights",      "av": "c", "pill": "rev",  "status": "in review" },
+                { "name": "SSO + SCIM provisioning", "av": "",  "pill": "prog", "status": "in progress" }
+              ]</w-data>
               <div class="tiles">
-                <div class="tile"><b count="to: 24; start: 20; end: 52"></b><span>active streams</span></div>
-                <div class="tile"><b count="to: 132; start: 20; end: 56"></b><span>shipped this quarter</span></div>
-                <div class="tile"><b count="to: 99.98; decimals: 2; suffix: %; start: 20; end: 60"></b><span>uptime</span></div>
+                <w-for each="tiles" as="t">
+                  <div class="tile"><b count="{t.count}"></b><span>{t.label}</span></div>
+                </w-for>
               </div>
               <div class="rows">
-                <div class="row"><span class="av"></span><span class="grow">Realtime sync engine</span><span class="pill ship">shipped</span></div>
-                <div class="row"><span class="av b"></span><span class="grow">Mobile command bar</span><span class="pill prog">in progress</span></div>
-                <div class="row"><span class="av c"></span><span class="grow">Workspace insights</span><span class="pill rev">in review</span></div>
-                <div class="row"><span class="av"></span><span class="grow">SSO + SCIM provisioning</span><span class="pill prog">in progress</span></div>
+                <w-for each="tasks" as="task">
+                  <div class="row"><span class="av {task.av}"></span><span class="grow">{task.name}</span><span class="pill {task.pill}">{task.status}</span></div>
+                </w-for>
               </div>
             </div>
           </div>
@@ -195,22 +205,31 @@ const SCENE = `
         <div class="win">
           <div class="bar-title"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
             Orbit — Streams</div>
+          <w-data name="board">[
+            { "title": "Backlog", "cards": [
+              { "t": "Usage-based billing", "id": "ORB-341", "av": "c" },
+              { "t": "Audit log export",    "id": "ORB-329", "av": "" },
+              { "t": "Slack digest bot",    "id": "ORB-317", "av": "b" }
+            ]},
+            { "title": "In progress", "cards": [
+              { "t": "Mobile command bar",  "id": "ORB-312", "av": "b" },
+              { "t": "Workspace insights",  "id": "ORB-308", "av": "" },
+              { "t": "Cycle burndown view", "id": "ORB-301", "av": "c" }
+            ]},
+            { "title": "Done", "cards": [
+              { "t": "Realtime sync engine", "id": "ORB-290", "av": "" },
+              { "t": "Keyboard-first nav",   "id": "ORB-275", "av": "c" },
+              { "t": "Public roadmap embed", "id": "ORB-268", "av": "b" }
+            ]}
+          ]</w-data>
           <div class="cols">
-            <div class="col"><h4>Backlog</h4>
-              <div class="card">Usage-based billing<div class="meta"><span class="tag">ORB-341</span><span class="av c"></span></div></div>
-              <div class="card">Audit log export<div class="meta"><span class="tag">ORB-329</span><span class="av"></span></div></div>
-              <div class="card">Slack digest bot<div class="meta"><span class="tag">ORB-317</span><span class="av b"></span></div></div>
-            </div>
-            <div class="col"><h4>In progress</h4>
-              <div class="card">Mobile command bar<div class="meta"><span class="tag">ORB-312</span><span class="av b"></span></div></div>
-              <div class="card">Workspace insights<div class="meta"><span class="tag">ORB-308</span><span class="av"></span></div></div>
-              <div class="card">Cycle burndown view<div class="meta"><span class="tag">ORB-301</span><span class="av c"></span></div></div>
-            </div>
-            <div class="col"><h4>Done</h4>
-              <div class="card">Realtime sync engine<div class="meta"><span class="tag">ORB-290</span><span class="av"></span></div></div>
-              <div class="card">Keyboard-first nav<div class="meta"><span class="tag">ORB-275</span><span class="av c"></span></div></div>
-              <div class="card">Public roadmap embed<div class="meta"><span class="tag">ORB-268</span><span class="av b"></span></div></div>
-            </div>
+            <w-for each="board" as="col">
+              <div class="col"><h4>{col.title}</h4>
+                <w-for each="col.cards" as="card">
+                  <div class="card">{card.t}<div class="meta"><span class="tag">{card.id}</span><span class="av {card.av}"></span></div></div>
+                </w-for>
+              </div>
+            </w-for>
           </div>
         </div>
       </w-el>
@@ -231,14 +250,12 @@ const SCENE = `
           <div class="bar-title"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
             Orbit — Velocity</div>
           <div style="display:flex;flex-direction:column;height:calc(100% - 43px);">
+            <w-data name="velocity">[96, 132, 118, 170, 152, 208, 238]</w-data>
             <div class="chart">
-              <div class="vbar"><w-animate property="height" from="16px" to="96px"  start="18" end="44" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="132px" start="22" end="48" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="118px" start="26" end="52" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="170px" start="30" end="56" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="152px" start="34" end="60" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="208px" start="38" end="64" easing="easeOutCubic"></w-animate></div>
-              <div class="vbar"><w-animate property="height" from="16px" to="238px" start="42" end="68" easing="easeOutCubic"></w-animate></div>
+              <w-for each="velocity" as="peak">
+                <div class="vbar"><w-animate property="height" from="16px" to="{peak}px"
+                     start="{18 + i * 4}" end="{44 + i * 4}" easing="easeOutCubic"></w-animate></div>
+              </w-for>
             </div>
             <div class="stats2">
               <div class="tile"><b count="to: 42; start: 40; end: 68"></b><span>ships / week</span></div>
