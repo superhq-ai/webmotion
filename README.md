@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/superhq-ai/webmotion/main/assets/banner.png" alt="WebMotion: deterministic video composition, rendered entirely in the browser" width="100%" />
+  <img src="./assets/banner.png" alt="WebMotion: deterministic video composition, rendered entirely in the browser" width="100%" />
 </p>
 
 <p align="center">
