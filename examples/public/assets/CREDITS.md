@@ -11,6 +11,14 @@
 - `whoosh.m4a` — "Air Woosh Move" by Almitory,
   [OpenGameArt](https://opengameart.org/content/air-woosh-move), CC0 1.0
   (public domain).
+- `reel-score.m4a` — trimmed from "Raving Energy" by Kevin MacLeod
+  ([incompetech.com](https://incompetech.com)), licensed under
+  [Creative Commons: By Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+## Flags
+
+- `flags/*.svg` — from [flag-icons](https://github.com/lipis/flag-icons),
+  MIT license.
 
 ## Images
 
