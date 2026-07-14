@@ -293,7 +293,6 @@ export default {
     "HTML (window chrome, kanban, charts), so it stays crisp at any resolution; " +
     "the backdrops are generated imagery; the bars and counters are frame-driven.",
   downloadName: "orbit-product-demo.mp4",
-  poster: 170,
   chapters: [
     { label: "Orbit", from: 0 },
     { label: "Overview", from: 92 },

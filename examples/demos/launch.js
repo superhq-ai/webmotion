@@ -125,7 +125,6 @@ export default {
     "letter-tracked reveal over AI-generated imagery, staggered feature lines, " +
     "and an end card. Export it and ship it.",
   downloadName: "webmotion-launch.mp4",
-  poster: 130,
   chapters: [
     { label: "Intro", from: 0 },
     { label: "Reveal", from: 78 },

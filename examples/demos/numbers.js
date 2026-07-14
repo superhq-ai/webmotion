@@ -107,7 +107,6 @@ export default {
     "component registered through the same registry as the built-ins, driven " +
     "purely by the frame, so the counters land identically in every export.",
   downloadName: "webmotion-numbers.mp4",
-  poster: 150,
   chapters: [
     { label: "Intro", from: 0 },
     { label: "Numbers", from: 72 },

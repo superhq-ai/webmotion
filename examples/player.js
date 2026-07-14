@@ -50,8 +50,6 @@ export function mountPlayer(mountEl, demo) {
   const { composition } = created;
   const lastFrame = composition.durationInFrames - 1;
   const chapters = resolveChapters(demo, composition.durationInFrames);
-  // A representative frame to show on load, so the preview is never blank.
-  const posterFrame = Math.min(lastFrame, demo.poster ?? Math.round(lastFrame * 0.7));
 
   const chapterMarkup = chapters
     .map(
@@ -292,8 +290,8 @@ export function mountPlayer(mountEl, demo) {
     }
   });
 
-  // Show a representative poster frame on load, not a blank first frame.
-  drawFrame(posterFrame);
+  // Land at the top of the film, like any video player.
+  drawFrame(0);
 
   return {
     destroy() {
