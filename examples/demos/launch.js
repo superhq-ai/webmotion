@@ -8,7 +8,7 @@ import "@superhq/webmotion/elements";
 const WIDTH = 1280;
 const HEIGHT = 720;
 const FPS = 30;
-const DURATION = 330;
+const DURATION = 385;
 
 const SCENE = `
 <style>
@@ -29,6 +29,10 @@ const SCENE = `
   <w-animation name="beat-in">
     <w-animate property="opacity" from="0"  to="1" start="0" end="16" easing="easeOutCubic"></w-animate>
     <w-animate property="y"       from="28" to="0" start="0" end="16" easing="easeOutCubic"></w-animate>
+  </w-animation>
+  <!-- A revealed line steps back when its successor lands (36 frames later). -->
+  <w-animation name="dim-when-next">
+    <w-animate property="opacity" from="1" to="0.38" start="36" end="48" easing="easeInOutSine"></w-animate>
   </w-animation>
 </w-defs>
 
@@ -68,29 +72,29 @@ const SCENE = `
 </w-sequence>
 
 <!-- Beat 3: features over the light ribbons, staggered by structure. -->
-<w-sequence from="190" duration="86">
+<w-sequence from="190" duration="140">
   <w-el x="0" y="0" width="1280" height="720">
-    <w-animate property="opacity" from="1" to="0" start="74" end="86" easing="easeInCubic"></w-animate>
+    <w-animate property="opacity" from="1" to="0" start="128" end="140" easing="easeInCubic"></w-animate>
 
     <w-el x="0" y="0" width="1280" height="720"
           style="background:url('assets/light-ribbons.png') center/cover no-repeat;">
       <w-animate property="opacity" from="0" to="0.45" start="0" end="20" easing="easeOutSine"></w-animate>
     </w-el>
 
-    <w-sequence from="4">
+    <w-sequence from="6">
       <w-text class="feature" motion="beat-in" x="0" y="250" width="1280">Deterministic to the frame.</w-text>
     </w-sequence>
-    <w-sequence from="13">
+    <w-sequence from="36">
       <w-text class="feature" motion="beat-in" x="0" y="330" width="1280">Native to the browser.</w-text>
     </w-sequence>
-    <w-sequence from="22">
+    <w-sequence from="66">
       <w-text class="feature" motion="beat-in" x="0" y="410" width="1280">Zero render farm.</w-text>
     </w-sequence>
   </w-el>
 </w-sequence>
 
 <!-- Beat 4: end card. -->
-<w-sequence from="276">
+<w-sequence from="330">
   <w-el motion="beat-in" x="0" y="0" width="1280" height="720"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
     <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -117,9 +121,9 @@ export default {
     { label: "Intro", from: 0 },
     { label: "Reveal", from: 78 },
     { label: "Features", from: 190 },
-    { label: "End card", from: 276 },
+    { label: "End card", from: 330 },
   ],
-  source: `<w-composition width="1280" height="720" fps="30" duration="330">${SCENE}</w-composition>`,
+  source: `<w-composition width="1280" height="720" fps="30" duration="385">${SCENE}</w-composition>`,
   create() {
     const element = document.createElement("w-composition");
     element.setAttribute("width", String(WIDTH));

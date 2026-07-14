@@ -12,7 +12,7 @@ What separates keynote-grade motion from a slideshow:
 - **Move small.** Type rises 24–40px, scales 0.96→1.0. Big travel reads as cartoon, small travel reads as expensive.
 - **Slow drift on holds.** A 1–3% scale or a few px of drift over the whole hold keeps stills alive (Ken Burns).
 - **Track letters on hero words.** Animating `letter-spacing` from wide to normal (e.g. `18px → 2px`) with a long ease-out is the signature keynote move.
-- **Stagger by 6–10 frames**, not 2 (reads as jitter) or 20 (reads as separate events).
+- **Two kinds of stagger.** Items that form one visual group (chips, grid cells) cascade at 6–10 frame offsets. Lines meant to be *read* one at a time (feature statements) reveal one by one: ~30 frame offsets, so each line lands and holds alone before the next enters.
 
 ## Staged typography (beat in, beat out)
 
@@ -59,15 +59,19 @@ Give beat wrappers explicit full-frame coordinates (`x="0" y="0" width height`) 
 
 Use a wrapper `<w-el>` sized to the full frame; `scale` composes on the transform so the image drifts as one plane.
 
-## Feature-line stagger
+## Feature-line reveal (one by one)
+
+Feature statements are read, not glanced, so give each line ~30 frames to itself before the next enters:
 
 ```html
-<w-sequence from="150" duration="90">
+<w-sequence from="150" duration="140">
   <w-sequence from="0"><w-text class="feature" motion="beat-in" x="0" y="270" width="1280">Deterministic.</w-text></w-sequence>
-  <w-sequence from="9"><w-text class="feature" motion="beat-in" x="0" y="350" width="1280">Browser-native.</w-text></w-sequence>
-  <w-sequence from="18"><w-text class="feature" motion="beat-in" x="0" y="430" width="1280">No render farm.</w-text></w-sequence>
+  <w-sequence from="30"><w-text class="feature" motion="beat-in" x="0" y="350" width="1280">Browser-native.</w-text></w-sequence>
+  <w-sequence from="60"><w-text class="feature" motion="beat-in" x="0" y="430" width="1280">No render farm.</w-text></w-sequence>
 </w-sequence>
 ```
+
+For grouped items (chips, cards) tighten the offsets to 6–10 frames so they read as one cascading gesture.
 
 ## End card
 
