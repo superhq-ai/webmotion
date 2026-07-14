@@ -103,6 +103,27 @@ All motion attributes are live. Changing any attribute of a `<w-animate>`, renam
 
 Entities render their text from child text nodes, so tween elements and text coexist naturally. `<w-text text="...">` is also supported; it writes into a dedicated inner span and leaves element children (such as inline tweens) untouched.
 
+## Styling
+
+Static presentation belongs to CSS, not to motion vocabulary. The test is simple: if a value changes with the frame, it is a tween; if it is the same at every frame, it is a style. Entities are ordinary elements, so everything CSS offers works on them, in live preview and in export alike (the rasterizer embeds the document's stylesheets):
+
+```html
+<style>
+  w-composition { font-family: -apple-system, "SF Pro Display", sans-serif; }
+  .headline { font-size: 96px; font-weight: 700; text-align: center; color: #f5f6f8; }
+</style>
+
+<w-composition ...>
+  <w-text class="headline" motion="fade-up" x="0" y="250" width="1280">Author in HTML.</w-text>
+</w-composition>
+```
+
+- **Inheritance**: `font-family` and `color` inherit, so set them once on the composition (or any wrapper).
+- **Classes** name repeated visual roles, the way `motion` names repeated behavior.
+- **Custom properties** work as design tokens when scenes want themes.
+
+The presentational attributes on entities (`font`, `color`, `fill`, `radius`, `align`) are one-off conveniences on the same tier as inline `style`; reach for classes when a role repeats. WebMotion deliberately adds no font or style vocabulary of its own.
+
 ## Extending
 
 Custom per-frame behaviors register from JS through the component registry, unchanged:
