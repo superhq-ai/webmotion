@@ -81,6 +81,8 @@ Tweens apply to an entity in this order, and within a frame the last write to a 
 
 So inline tweens override named ones, mirroring `style=""` beating a stylesheet.
 
+Note that a tween writes its clamped boundary value even outside its window, so two tweens on the same property of one element conflict across the whole timeline, not just where they overlap. For entrance and exit on the same property, put them on different nesting levels (a wrapper element owns the exit, the inner element owns the entrance); opacity and transforms compose through the tree. Window-scoped precedence (the most recently started tween owning the property) is a candidate refinement, reserved for later.
+
 ## Staggering
 
 There is no delay parameter. To run the same animation at different times, place instances inside sequences; the sequence shifts the frame origin, and the definition still starts at its local frame 0:

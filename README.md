@@ -96,6 +96,18 @@ npm run demo
 
 Four live demos with scrubbing, chapters, and in-browser MP4 export: kinetic typography on canvas, a product UI rendered from real HTML, the self-referential "WebMotion inside WebMotion", and the declarative `<w-*>` scene with its markup shown alongside. Needs a Chromium-based browser (WebCodecs H.264 and `OffscreenCanvas`).
 
+## AI skill
+
+`skills/webmotion/` is an installable agent skill that teaches AI coding agents to author WebMotion scenes: the element reference, motion rules, styling guidance, export wiring, and launch-film recipes with pacing craft.
+
+For Claude Code:
+
+```bash
+npx -y degit superhq-ai/webmotion/skills/webmotion ~/.claude/skills/webmotion
+```
+
+Then ask for a video ("make me a 10 second launch film for X") and the agent knows the format. The folder is plain `SKILL.md` + references, so any agent framework that consumes skill instructions can use it as-is.
+
 ## Development
 
 ```bash
