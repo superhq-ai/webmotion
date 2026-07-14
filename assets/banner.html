@@ -1,0 +1,151 @@
+<!doctype html>
+<!-- Source for the README banner. Render with: node scripts/render-banner.mjs -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 1280px;
+        height: 400px;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        color: #f5f6f8;
+        background: radial-gradient(120% 140% at 50% -20%, #1b2338 0%, #0d101b 55%, #080a10 100%);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .blob {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .blob-a {
+        width: 520px;
+        height: 520px;
+        right: -140px;
+        top: -260px;
+        background: linear-gradient(135deg, rgba(64, 110, 255, 0.22), rgba(154, 92, 255, 0.08));
+      }
+      .blob-b {
+        width: 420px;
+        height: 420px;
+        left: -180px;
+        bottom: -240px;
+        background: linear-gradient(315deg, rgba(64, 110, 255, 0.16), rgba(154, 92, 255, 0.05));
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .brand svg {
+        width: 52px;
+        height: 52px;
+        color: #f5f6f8;
+      }
+      .brand h1 {
+        font-size: 72px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .tagline {
+        font-size: 21px;
+        font-weight: 400;
+        color: rgba(235, 238, 245, 0.62);
+        letter-spacing: -0.01em;
+        margin-top: -16px;
+      }
+
+      /* The strip: the same tween sampled at nine frames. Communicates the whole
+         idea: what you see at frame N is a pure function of N. */
+      .strip {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+      }
+      .frame {
+        width: 100px;
+        height: 56px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.045);
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        position: relative;
+        overflow: hidden;
+      }
+      .ball {
+        position: absolute;
+        top: 21px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6f92ff, #a97dff);
+      }
+      .label {
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        color: rgba(235, 238, 245, 0.38);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="blob blob-a"></div>
+    <div class="blob blob-b"></div>
+
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+        />
+      </svg>
+      <h1>WebMotion</h1>
+    </div>
+
+    <div class="tagline">Deterministic video composition, rendered entirely in the browser.</div>
+
+    <div class="strip" id="strip"></div>
+
+    <script>
+      // easeOutCubic, the same curve the library ships.
+      const ease = (t) => 1 - Math.pow(1 - t, 3);
+      const strip = document.getElementById("strip");
+      const FRAMES = 9;
+      const TRAVEL = 100 - 2 * 9 - 14; // frame width minus padding and ball
+      for (let i = 0; i < FRAMES; i++) {
+        const t = i / (FRAMES - 1);
+        const p = ease(t);
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.innerHTML =
+          '<div class="frame"><div class="ball" style="left:' +
+          (9 + p * TRAVEL).toFixed(1) +
+          "px;opacity:" +
+          (0.35 + 0.65 * p).toFixed(2) +
+          '"></div></div><div class="label">f = ' +
+          i * 6 +
+          "</div>";
+        strip.appendChild(cell);
+      }
+    </script>
+  </body>
+</html>
