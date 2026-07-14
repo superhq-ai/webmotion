@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebMotion demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+        background: #0b0d12;
+        color: #e6e8ee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 32px 16px;
+      }
+      h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+      .sub { color: #8b90a0; margin: 0 0 8px; }
+      canvas {
+        width: min(640px, 90vw);
+        aspect-ratio: 16 / 9;
+        border-radius: 10px;
+        background: #000;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      }
+      .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        color: #0b0d12;
+        background: #7c9cff;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 16px;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      button.ghost { background: #1a1e28; color: #e6e8ee; }
+      input[type="range"] { width: min(640px, 90vw); }
+      #status { color: #8b90a0; min-height: 1.4em; text-align: center; }
+      a.dl { color: #7c9cff; }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>WebMotion</h1>
+      <p class="sub">Deterministic canvas composition → WebCodecs → MP4, all in the browser.</p>
+    </div>
+    <canvas id="stage"></canvas>
+    <input id="scrub" type="range" min="0" value="0" step="1" />
+    <div class="controls">
+      <button id="play">Play</button>
+      <button id="export" class="ghost">Export MP4</button>
+    </div>
+    <div id="status">Ready.</div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "webmotion": "../dist/index.js",
+          "mp4-muxer": "../node_modules/mp4-muxer/build/mp4-muxer.mjs"
+        }
+      }
+    </script>
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>

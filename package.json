@@ -1,0 +1,41 @@
+{
+  "name": "webmotion",
+  "version": "0.0.1",
+  "description": "Browser-native, deterministic video composition — a Remotion alternative built on web platform APIs.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "video",
+    "webcodecs",
+    "motion-graphics",
+    "remotion",
+    "composition",
+    "webgpu"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "mp4-muxer": "^5.1.3"
+  }
+}
