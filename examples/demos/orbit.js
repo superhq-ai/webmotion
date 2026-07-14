@@ -101,6 +101,18 @@ const SCENE = `
   </w-animation>
 </w-defs>
 
+<!-- Soundtrack: steady product-demo pulse, swooshes on the panel scenes.
+     Audio credits: examples/public/assets/CREDITS.md -->
+<w-audio src="assets/orbit-score.m4a" gain="0.8">
+  <w-animate property="gain" from="0.8" to="0" start="560" end="600"></w-animate>
+</w-audio>
+<w-sequence from="88">
+  <w-audio src="assets/whoosh.m4a" gain="0.35"></w-audio>
+</w-sequence>
+<w-sequence from="556">
+  <w-audio src="assets/whoosh.m4a" gain="0.3"></w-audio>
+</w-sequence>
+
 <w-rect x="0" y="0" width="1280" height="720" fill="#05060a"></w-rect>
 
 <!-- Scene 1: identity -->
