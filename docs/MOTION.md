@@ -99,7 +99,7 @@ This is a deliberate constraint: when time lives in the tree structure, the time
 
 ## Liveness
 
-All motion attributes are live. Changing any attribute of a `<w-animate>`, renaming a `<w-animation>`, moving elements, or editing `motion` takes effect on the next rendered frame; parsed tween data is cached per element and invalidated by attribute value comparison, never by time. Editing the scene in devtools while scrubbing behaves the way you would hope.
+All motion attributes are live. Changing any attribute of a `<w-animate>`, renaming a `<w-animation>`, moving elements, or editing `motion` takes effect on the next rendered frame; parsed tween data is cached per element and invalidated by attribute value comparison, never by time.
 
 ## Text content
 

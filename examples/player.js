@@ -290,7 +290,6 @@ export function mountPlayer(mountEl, demo) {
     }
   });
 
-  // Land at the top of the film, like any video player.
   drawFrame(0);
 
   return {

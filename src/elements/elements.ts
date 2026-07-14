@@ -239,8 +239,7 @@ class WComposition extends HTMLElement {
 
   // Preview playback. The clock paces which frame index is shown; each frame
   // is still a pure function of its index, so output stays deterministic.
-  // With audio present, the audio clock is authoritative, the way any video
-  // player slaves pictures to sound.
+  // With audio present, the audio clock is authoritative.
   private async startPlayback(startFrame: number): Promise<void> {
     const token = ++this.playToken;
     const clips = collectAudioClips(this.stage, this.fps, this.durationInFrames);

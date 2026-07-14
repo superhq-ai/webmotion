@@ -44,7 +44,7 @@ A clip is audible from its start until the earliest of: its `duration`, its sour
 
 ## Preview
 
-`composition.play()` collects clips, decodes them (cached per context), and schedules them on a live `AudioContext`. When audio is present, **the audio clock paces the frames**, the way any video player slaves pictures to sound; each rendered frame is still a pure function of its index. Seeking while playing reschedules the clips from the new position; looping restarts them.
+`composition.play()` collects clips, decodes them (cached per context), and schedules them on a live `AudioContext`. When audio is present, **the audio clock paces the frames**; each rendered frame is still a pure function of its index. Seeking while playing reschedules the clips from the new position; looping restarts them.
 
 Browser autoplay policy applies: an `AudioContext` only starts after a user gesture. A composition with `autoplay` previews silent until the first interaction; a play button counts.
 
