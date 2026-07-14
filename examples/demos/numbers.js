@@ -4,46 +4,14 @@
 // the extensibility showcase: `count="to: 12480; start: 8; end: 56"` on any
 // entity, driven purely by the frame.
 import "@superhq/webmotion/elements";
-import { registerComponent, parseProps, num, resolveEasing } from "@superhq/webmotion/elements";
+import { registerCount } from "./lib/count.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
 const FPS = 30;
 const DURATION = 240;
 
-// Format 12480.3 -> "12,480" / 99.99 -> "99.99" without locale dependence.
-function formatCount(value, decimals) {
-  const fixed = value.toFixed(decimals);
-  const [int, frac] = fixed.split(".");
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return frac ? `${grouped}.${frac}` : grouped;
-}
-
-registerComponent("count", {
-  parse(value) {
-    const p = parseProps(value);
-    return {
-      from: num(p.from, 0),
-      to: num(p.to, 0),
-      start: num(p.start, 0),
-      end: num(p.end, 0),
-      decimals: num(p.decimals, 0),
-      prefix: p.prefix ?? "",
-      suffix: p.suffix ?? "",
-      easing: resolveEasing(p.easing ?? "easeOutCubic"),
-    };
-  },
-  render(el, d, ctx) {
-    const span = d.end - d.start;
-    const t =
-      span <= 0 || ctx.frame >= d.end
-        ? 1
-        : ctx.frame <= d.start
-          ? 0
-          : d.easing((ctx.frame - d.start) / span);
-    el.textContent = d.prefix + formatCount(d.from + (d.to - d.from) * t, d.decimals) + d.suffix;
-  },
-});
+registerCount();
 
 const SCENE = `
 <style>
