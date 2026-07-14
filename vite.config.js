@@ -8,6 +8,7 @@ const fromRoot = (p) => fileURLToPath(new URL(p, import.meta.url));
 // does this for you) so these files exist.
 export default defineConfig({
   root: "examples",
+  base: "./",
   resolve: {
     alias: [
       {

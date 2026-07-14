@@ -88,6 +88,10 @@ Prefer real DOM over canvas drawing? The `@superhq/webmotion/html-in-canvas` bac
 
 ## Demos
 
+**Live: [superhq-ai.github.io/webmotion](https://superhq-ai.github.io/webmotion/)**
+
+Or run locally:
+
 ```bash
 git clone https://github.com/superhq-ai/webmotion && cd webmotion
 npm install
