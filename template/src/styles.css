@@ -1,0 +1,302 @@
+:root {
+  --bg: #ffffff;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --faint: #86868b;
+  --line: rgba(0, 0, 0, 0.1);
+  --chip: #f0f0f2;
+  --chip-hover: #e8e8ea;
+  --chip-active: #e0e0e3;
+  --accent: #0071e3;
+  --radius-md: 10px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* The player fills the viewport: a slim top bar, the stage, then the controls.
+   Flat surfaces divided by hairlines, no shadows. */
+.player {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Top bar: brand left, export right. */
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dl {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.dl:hover {
+  text-decoration: underline;
+}
+
+.export-btn {
+  padding: 6px 14px;
+  border-radius: 980px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: opacity 0.12s ease;
+}
+.export-btn:hover {
+  opacity: 0.85;
+}
+.export-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Stage: centers the composition, which scales itself to the shell's width. */
+.stage-frame {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.stage-shell {
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stage-element {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+/* Controls: one slim bar. Play, time, then the scrub track. */
+.controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.play-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  transition: opacity 0.12s ease;
+}
+.play-btn:hover {
+  opacity: 0.85;
+}
+.play-btn svg {
+  display: block;
+}
+
+.time {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 5px;
+}
+.time-cur {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* The timeline scrolls horizontally when zoomed in; the inner element grows
+   wider than the viewport and everything inside is measured in % of the full
+   duration, so segments, audio, and playhead all scale together. */
+.timeline-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 3px 0;
+  scrollbar-width: thin;
+}
+.timeline-inner {
+  position: relative;
+  width: 100%;
+}
+
+/* The track: labelled section segments with a playhead line and an invisible
+   range overlay that keeps the whole thing scrubbable and keyboard accessible. */
+.track {
+  position: relative;
+}
+.chapters {
+  display: flex;
+  gap: 4px;
+}
+.chapter {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.chapter.active {
+  background: var(--chip-active);
+  color: var(--ink);
+}
+.chapter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+/* No section labels: the segments collapse into a plain progress track. */
+.track--plain .chapter {
+  height: 8px;
+  border-radius: 980px;
+}
+
+/* Audio lane: one block per <w-audio>, positioned by its frame window. */
+.audio-lane {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
+}
+.audio-clip {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 5px;
+  background: rgba(0, 113, 227, 0.14);
+  border: 1px solid rgba(0, 113, 227, 0.35);
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  overflow: hidden;
+}
+.audio-name {
+  font-size: 10.5px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1.5px solid var(--ink);
+  pointer-events: none;
+  transition: left 0.03s linear;
+}
+
+.seek {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Zoom controls */
+.zoom {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.zoom-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--chip);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  transition: background 0.12s ease;
+}
+.zoom-btn:hover:not(:disabled) {
+  background: var(--chip-hover);
+}
+.zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.zoom-level {
+  min-width: 34px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

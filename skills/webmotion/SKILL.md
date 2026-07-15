@@ -23,6 +23,14 @@ Entry points:
 
 Preview works in any modern browser. **MP4 export needs a Chromium-based browser** (WebCodecs H.264 + `OffscreenCanvas`).
 
+Starting a fresh project? Scaffold the Vite starter instead of wiring preview and export by hand; it ships a live preview, a zoomable scrub timeline (section labels + audio lane), and an Export MP4 button:
+
+```bash
+npx degit superhq-ai/webmotion/template my-video && cd my-video && npm install && npm run dev
+```
+
+The user's scene lives in `src/scene.js`: a `config` object (`width`, `height`, `fps`, `duration`, `background`, `downloadName`) and a `scene` string of `<w-*>` markup. Author the video by editing that string; put a `label="..."` on top-level `<w-sequence>` beats to name them on the scrub bar. Don't touch `src/player.js` (the preview/export UI) unless asked.
+
 ## Declarative authoring (preferred)
 
 Import once, then the scene is markup:

@@ -17,6 +17,19 @@ It rests on one rule: **everything visible is a pure function of the current fra
 npm install @superhq/webmotion
 ```
 
+## Start a project
+
+Prefer a ready-made setup? Scaffold a Vite project with a live preview, a zoomable scrub timeline (section labels and an audio lane), and one-click MP4 export:
+
+```bash
+npx degit superhq-ai/webmotion/template my-video
+cd my-video
+npm install
+npm run dev
+```
+
+Then author your video in `src/scene.js` and the preview reloads as you save. See [template/README.md](./template/) for the details.
+
 ## Write video in HTML
 
 Import the elements entry once and the scene is just markup:
