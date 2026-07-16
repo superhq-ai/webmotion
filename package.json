@@ -1,6 +1,6 @@
 {
   "name": "@superhq/webmotion",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Browser-native, deterministic video composition. A Remotion alternative built on web platform APIs.",
   "repository": {
     "type": "git",
