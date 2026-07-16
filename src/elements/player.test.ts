@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineElements, WComposition } from "./elements.js";
-import { definePlayer, WPlayer } from "./player.js";
+import { audioSpan, definePlayer, WPlayer } from "./player.js";
 
 beforeAll(() => {
   defineElements();
@@ -248,6 +248,26 @@ describe("WPlayer", () => {
     expect(clips.map((c) => c.textContent)).toEqual(["score.m4a", "whoosh.m4a"]);
     expect(clips[1].style.left).toBe("50%");
     expect(clips[1].style.width).toBe("25%");
+  });
+
+  it("tightens a clip's block to its audible span once metadata is known", () => {
+    const clip = {
+      src: "whoosh.m4a",
+      startFrame: 74,
+      endFrame: 620,
+      offsetFrames: 0,
+      gain: 1,
+      envelope: null,
+    };
+
+    // Without metadata the block spans the allowed window.
+    expect(audioSpan(clip, 30, 620)).toEqual({ from: 74, to: 620, src: "whoosh.m4a" });
+    // A 1.5 second file at 30fps is 45 frames.
+    expect(audioSpan(clip, 30, 620, 1.5)).toEqual({ from: 74, to: 119, src: "whoosh.m4a" });
+    // An offset into the source shortens what is left to play.
+    expect(audioSpan({ ...clip, offsetFrames: 15 }, 30, 620, 1.5).to).toBe(104);
+    // The window still wins when it is shorter than the file.
+    expect(audioSpan({ ...clip, endFrame: 90 }, 30, 620, 1.5).to).toBe(90);
   });
 
   it("binds an explicit source over slotted content", async () => {

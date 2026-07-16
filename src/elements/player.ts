@@ -7,6 +7,7 @@
 
 import type { TimelineSection } from "./sections.js";
 import type { AudioClip } from "../audio/schedule.js";
+import { audioDurations } from "../audio/engine.js";
 
 export interface PlayerChapter {
   label: string;
@@ -229,6 +230,24 @@ function formatTime(frame: number, fps: number): string {
 }
 
 const basename = (src: string): string => src.split("/").pop()?.split("?")[0] ?? src;
+
+// A clip's block on the lane: its allowed window, tightened to the audible
+// span once the file's natural length is known. `naturalSec` is undefined
+// until metadata has been decoded (or when decoding failed).
+export function audioSpan(
+  clip: AudioClip,
+  fps: number,
+  durationInFrames: number,
+  naturalSec?: number,
+): { from: number; to: number; src: string } {
+  const from = Math.max(0, clip.startFrame);
+  let to = Math.min(durationInFrames, clip.endFrame);
+  if (naturalSec != null) {
+    const audibleFrames = Math.max(0, naturalSec * fps - clip.offsetFrames);
+    to = Math.min(to, clip.startFrame + Math.ceil(audibleFrames));
+  }
+  return { from, to, src: clip.src };
+}
 
 // Greedy interval packing: sort by start (longer first on ties), place each
 // item in the first row it does not overlap. Overlapping items stack into as
@@ -505,7 +524,9 @@ export class WPlayer extends HTMLElement {
     this.deriveMarks(source.sections?.() ?? []);
     this.renderSegments();
     this.renderOverlays();
-    this.renderAudioLanes(source.audioClips?.() ?? []);
+    const clips = source.audioClips?.() ?? [];
+    this.renderAudioLanes(clips);
+    void this.refineAudioLanes(source, clips);
     this.reflectPlaying(source.playing);
     this.reflectVolume(source.volume, source.muted);
     this.fitShell();
@@ -708,16 +729,12 @@ export class WPlayer extends HTMLElement {
   // Audio lanes: one block per <w-audio> clip at its timeline position, so
   // sound is visible while scrubbing. Overlapping clips (a music bed under
   // effects) pack into separate lanes. Purely informational.
-  private renderAudioLanes(clips: AudioClip[]): void {
+  private renderAudioLanes(clips: AudioClip[], durations?: Map<string, number>): void {
     const source = this.boundSource;
     if (!source) return;
     const duration = source.durationInFrames;
     const spans = clips
-      .map((clip) => ({
-        from: Math.max(0, clip.startFrame),
-        to: Math.min(duration, clip.endFrame),
-        src: clip.src,
-      }))
+      .map((clip) => audioSpan(clip, source.fps, duration, durations?.get(clip.src)))
       .filter((span) => span.to > span.from);
     this.lanesEl.replaceChildren(
       ...packLanes(spans).map((row) => {
@@ -735,6 +752,15 @@ export class WPlayer extends HTMLElement {
         return rowEl;
       }),
     );
+  }
+
+  // Second pass over the lanes once clip metadata has been decoded, so a
+  // one-shot effect draws as a short block instead of its whole window.
+  private async refineAudioLanes(source: PlayableSource, clips: AudioClip[]): Promise<void> {
+    if (clips.length === 0) return;
+    const durations = await audioDurations(clips.map((clip) => clip.src));
+    if (durations.size === 0 || this.boundSource !== source) return;
+    this.renderAudioLanes(clips, durations);
   }
 
   // Fit: the shell takes the largest width whose stage still fits the

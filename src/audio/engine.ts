@@ -57,6 +57,37 @@ export async function loadClipBuffers(
   return out;
 }
 
+// Natural clip lengths in seconds, for timeline UIs that want to draw a
+// clip's audible span instead of its allowed window. Reuses the byte cache;
+// decoding runs through an OfflineAudioContext, which needs no user gesture.
+const durationCache = new Map<string, Promise<number>>();
+
+export async function audioDurations(srcs: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (typeof OfflineAudioContext === "undefined") return out;
+  await Promise.all(
+    [...new Set(srcs)].map(async (src) => {
+      try {
+        let hit = durationCache.get(src);
+        if (!hit) {
+          const url = new URL(src, typeof document !== "undefined" ? document.baseURI : src).href;
+          hit = fetchAudio(url)
+            .then((bytes) => new OfflineAudioContext(1, 1, 48000).decodeAudioData(bytes))
+            .then((buffer) => buffer.duration);
+          durationCache.set(src, hit);
+          hit.catch(() => {
+            if (durationCache.get(src) === hit) durationCache.delete(src);
+          });
+        }
+        out.set(src, await hit);
+      } catch {
+        // Undecodable or unreachable: the caller keeps the window span.
+      }
+    }),
+  );
+  return out;
+}
+
 export interface ScheduledAudio {
   stop(): void;
 }
