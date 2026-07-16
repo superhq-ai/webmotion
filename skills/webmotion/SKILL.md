@@ -64,8 +64,8 @@ Import once, then the scene is markup:
 | Element | Attributes | Notes |
 | --- | --- | --- |
 | `<w-composition>` | `width` `height` `fps` `duration` (frames) `poster` (frame) `autoplay` `loop` `background` `template` (selector of an inert `<template>` to instantiate) | The root. Owns the frame clock, scales itself to fit its container width. Without `loop`, playback stops on the last frame and fires `w-ended`. |
-| `<w-sequence>` | `from` (frame) `duration` (frames, omit = unbounded) `label` (chapter name shown by player UIs) | Timing window. Hides its subtree outside `[from, from+duration)` and shifts the frame origin to local time for descendants. Nestable; offsets accumulate. |
-| `<w-player>` | — (`chapters` and `timelineZoom` are JS properties) | The standard transport around a slotted `<w-composition>`: play/pause, zoomable scrub timeline (chapters from `<w-sequence label>`, an audio lane from `<w-audio>`), volume/mute, fullscreen, keyboard control. Full spec: docs/PLAYER.md. |
+| `<w-sequence>` | `from` (frame) `duration` (frames, omit = unbounded) `label` (names the window on the player timeline) | Timing window. Hides its subtree outside `[from, from+duration)` and shifts the frame origin to local time for descendants. Nestable; offsets accumulate. Top-level labels become chapters; a label nested inside a labelled sequence becomes a sub-section on an overlay lane. |
+| `<w-player>` | — (`chapters` and `timelineZoom` are JS properties) | The standard transport around a slotted `<w-composition>`: play/pause, zoomable scrub timeline (chapter rail and overlay lanes from `<w-sequence label>`, audio lanes from `<w-audio>`, overlapping clips stack), volume/mute, fullscreen, keyboard control. Full spec: docs/PLAYER.md. |
 | `<w-text>` | `x` `y` `width` `height` `opacity` `text` `font` `color` `align` | Text from child text nodes (preferred) or the `text` attribute. |
 | `<w-rect>` | `x` `y` `width` `height` `opacity` `fill` (any CSS background) `radius` | Rectangle / gradient / image panel. |
 | `<w-el>` | `x` `y` `width` `height` `opacity` | Generic entity; put arbitrary HTML inside. |

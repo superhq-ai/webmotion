@@ -170,6 +170,71 @@ describe("WPlayer", () => {
     expect(segments[1].dataset.from).toBe("60");
   });
 
+  it("puts nested labels on overlay lanes at their true windows", async () => {
+    const { player, comp } = await mountPlayer(`
+      <w-player>
+        <w-composition duration="200">
+          <w-sequence label="Intro" from="0" duration="100"><w-el></w-el></w-sequence>
+          <w-sequence label="Scene 2" from="100">
+            <w-sequence label="Lower third" from="20" duration="40"><w-el></w-el></w-sequence>
+          </w-sequence>
+        </w-composition>
+      </w-player>`);
+
+    // The rail chains only the top-level labels.
+    const segments = [...shadow(player).querySelectorAll(".segment")] as HTMLElement[];
+    expect(segments.map((s) => s.textContent)).toEqual(["Intro", "Scene 2"]);
+
+    // The nested label renders below, positioned by its absolute window.
+    const subs = [...shadow(player).querySelectorAll(".sub")] as HTMLElement[];
+    expect(subs.map((s) => s.textContent)).toEqual(["Lower third"]);
+    expect(subs[0].style.left).toBe("60%");
+    expect(subs[0].style.width).toBe("20%");
+
+    comp.seek(130);
+    expect(segments[1].classList.contains("active")).toBe(true);
+    expect(subs[0].classList.contains("active")).toBe(true);
+    comp.seek(170);
+    expect(subs[0].classList.contains("active")).toBe(false);
+  });
+
+  it("stacks overlapping nested labels into separate rows", async () => {
+    const { player } = await mountPlayer(`
+      <w-player>
+        <w-composition duration="100">
+          <w-sequence label="Scene" from="0">
+            <w-sequence label="A" from="10" duration="50"><w-el></w-el></w-sequence>
+            <w-sequence label="B" from="40" duration="40"><w-el></w-el></w-sequence>
+            <w-sequence label="C" from="62" duration="20"><w-el></w-el></w-sequence>
+          </w-sequence>
+        </w-composition>
+      </w-player>`);
+
+    const rows = [...shadow(player).querySelectorAll(".subrow")] as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    // A and C fit on one row; B overlaps both and takes its own.
+    const rowLabels = rows.map((r) => [...r.children].map((c) => c.textContent));
+    expect(rowLabels).toEqual([
+      ["A", "C"],
+      ["B"],
+    ]);
+  });
+
+  it("packs overlapping audio clips into separate lanes", async () => {
+    const { player } = await mountPlayer(`
+      <w-player>
+        <w-composition fps="30" duration="100">
+          <w-audio src="assets/score.m4a"></w-audio>
+          <w-sequence from="40" duration="20"><w-audio src="assets/whoosh.m4a"></w-audio></w-sequence>
+        </w-composition>
+      </w-player>`);
+
+    const lanes = [...shadow(player).querySelectorAll(".lane")] as HTMLElement[];
+    expect(lanes).toHaveLength(2);
+    expect(lanes[0].children[0].textContent).toBe("score.m4a");
+    expect(lanes[1].children[0].textContent).toBe("whoosh.m4a");
+  });
+
   it("renders the audio lane from <w-audio> clips", async () => {
     const { player } = await mountPlayer(`
       <w-player>

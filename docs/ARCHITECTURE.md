@@ -93,7 +93,7 @@ The HTML backend's export cost is dominated by SVG-image loading: each changed f
 - **Inline-splice caching.** Data-URL embedding of `url()` style references is memoized per style string, so multi-megabyte splices happen once, not per frame.
 - **Unchanged-frame elision.** A frame whose serialized SVG matches the previous one skips rasterization entirely and reuses the cached canvas.
 
-Measured on the launch film (385 frames, 1280×720): 105ms/frame before, 26ms/frame after, ~4x. Directions deliberately not taken: Web Workers cannot touch the DOM or load SVG images, and encoding already runs off-thread in hardware, so workers add no parallelism here (a worker-hosted encoder would only help main-thread responsiveness); WebGPU does not apply to DOM rasterization, which is the browser's own renderer — it becomes relevant as a separate canvas/GPU backend; service workers are network proxies and have no role in this pipeline.
+Measured on the launch film (385 frames, 1280×720): 105ms/frame before, 26ms/frame after, ~4x. Directions deliberately not taken: Web Workers cannot touch the DOM or load SVG images, and encoding already runs off-thread in hardware, so workers add no parallelism here (a worker-hosted encoder would only help main-thread responsiveness); WebGPU does not apply to DOM rasterization, which is the browser's own renderer; it becomes relevant as a separate canvas/GPU backend. Service workers are network proxies and have no role in this pipeline.
 
 ## Releasing
 

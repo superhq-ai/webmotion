@@ -105,10 +105,12 @@ const STYLE = `
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: var(--w-player-accent, currentColor);
+    /* System-color fallbacks, not currentColor: the button sets its own color,
+       so currentColor here would read the icon color and paint tone on tone. */
+    background: var(--w-player-accent, CanvasText);
     color: var(--w-player-accent-contrast, Canvas);
   }
-  .play:hover:not(:disabled) { background: var(--w-player-accent, currentColor); opacity: 0.85; }
+  .play:hover:not(:disabled) { background: var(--w-player-accent, CanvasText); opacity: 0.85; }
   .time {
     flex: none;
     display: flex;
@@ -149,6 +151,28 @@ const STYLE = `
   .segment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* No labels: the segments collapse into a plain progress track. */
   .segments.plain .segment { height: 8px; padding: 0; border-radius: 980px; }
+  /* Overlay lanes: sub-sections and parallel labels at their true windows,
+     one row per set of non-overlapping sections. */
+  .subrow { position: relative; height: 18px; margin-top: 4px; }
+  .sub {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    min-width: 3px;
+    padding: 0 7px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 5px;
+    background: var(--w-player-chip, rgba(128, 128, 128, 0.15));
+    opacity: 0.75;
+    font-size: 10.5px;
+    font-weight: 500;
+  }
+  .sub.active { background: var(--w-player-chip-active, rgba(128, 128, 128, 0.35)); opacity: 1; }
+  .sub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lane { position: relative; height: 16px; margin-top: 4px; }
   .clip {
     position: absolute;
@@ -206,6 +230,25 @@ function formatTime(frame: number, fps: number): string {
 
 const basename = (src: string): string => src.split("/").pop()?.split("?")[0] ?? src;
 
+// Greedy interval packing: sort by start (longer first on ties), place each
+// item in the first row it does not overlap. Overlapping items stack into as
+// many rows as the scene actually needs; a scene with no overlap packs into
+// one.
+function packLanes<T extends { from: number; to: number }>(items: T[]): T[][] {
+  const sorted = [...items].sort((a, b) => a.from - b.from || b.to - a.to);
+  const rows: Array<{ end: number; items: T[] }> = [];
+  for (const item of sorted) {
+    const row = rows.find((r) => r.end <= item.from);
+    if (row) {
+      row.items.push(item);
+      row.end = item.to;
+    } else {
+      rows.push({ end: item.to, items: [item] });
+    }
+  }
+  return rows.map((r) => r.items);
+}
+
 export class WPlayer extends HTMLElement {
   readonly ready: Promise<void>;
   private resolveReady!: () => void;
@@ -215,6 +258,7 @@ export class WPlayer extends HTMLElement {
   private explicitSource: PlayableSource | null = null;
   private chapterList: PlayerChapter[] = [];
   private autoChapters: PlayerChapter[] = [];
+  private overlaySections: TimelineSection[] = [];
   private zoomValue = 1;
   private stageWidth = 1280;
   private stageHeight = 720;
@@ -230,7 +274,8 @@ export class WPlayer extends HTMLElement {
   private trackEl!: HTMLElement;
   private innerEl!: HTMLElement;
   private segmentsEl!: HTMLElement;
-  private laneEl!: HTMLElement;
+  private sublanesEl!: HTMLElement;
+  private lanesEl!: HTMLElement;
   private playheadEl!: HTMLElement;
   private seekInput!: HTMLInputElement;
   private volInput!: HTMLInputElement;
@@ -256,7 +301,8 @@ export class WPlayer extends HTMLElement {
         <div class="track" part="track">
           <div class="inner">
             <div class="segments"></div>
-            <div class="lane" hidden></div>
+            <div class="sublanes"></div>
+            <div class="lanes"></div>
             <div class="playhead"></div>
             <input class="seek" type="range" min="0" max="0" step="1" value="0" aria-label="Seek" />
           </div>
@@ -283,7 +329,8 @@ export class WPlayer extends HTMLElement {
     this.trackEl = root.querySelector(".track") as HTMLElement;
     this.innerEl = root.querySelector(".inner") as HTMLElement;
     this.segmentsEl = root.querySelector(".segments") as HTMLElement;
-    this.laneEl = root.querySelector(".lane") as HTMLElement;
+    this.sublanesEl = root.querySelector(".sublanes") as HTMLElement;
+    this.lanesEl = root.querySelector(".lanes") as HTMLElement;
     this.playheadEl = root.querySelector(".playhead") as HTMLElement;
     this.seekInput = root.querySelector(".seek") as HTMLInputElement;
     this.volInput = root.querySelector(".vol") as HTMLInputElement;
@@ -455,14 +502,10 @@ export class WPlayer extends HTMLElement {
     const lastFrame = Math.max(0, source.durationInFrames - 1);
     this.seekInput.max = String(lastFrame);
     this.timeDur.textContent = formatTime(lastFrame, source.fps);
-    // The scene's own labelled sections become chapter marks unless the host
-    // set explicit ones; the first mark stretches to 0 so the track reads full.
-    this.autoChapters = (source.sections?.() ?? []).map((section, i) => ({
-      label: section.label,
-      from: i === 0 ? 0 : section.from,
-    }));
+    this.deriveMarks(source.sections?.() ?? []);
     this.renderSegments();
-    this.renderLane(source.audioClips?.() ?? []);
+    this.renderOverlays();
+    this.renderAudioLanes(source.audioClips?.() ?? []);
     this.reflectPlaying(source.playing);
     this.reflectVolume(source.volume, source.muted);
     this.fitShell();
@@ -561,9 +604,9 @@ export class WPlayer extends HTMLElement {
     this.seekInput.value = String(frame);
     this.playheadEl.style.left = `${this.framePct(frame)}%`;
     this.timeCur.textContent = formatTime(frame, source.fps);
-    for (const el of Array.from(this.segmentsEl.children)) {
-      const from = Number((el as HTMLElement).dataset.from);
-      const to = Number((el as HTMLElement).dataset.to);
+    for (const el of this.innerEl.querySelectorAll<HTMLElement>(".segment, .sub")) {
+      const from = Number(el.dataset.from);
+      const to = Number(el.dataset.to);
       el.classList.toggle("active", frame >= from && frame < to);
     }
     this.followPlayhead(frame);
@@ -578,6 +621,20 @@ export class WPlayer extends HTMLElement {
     this.muteBtn.innerHTML = muted || volume === 0 ? MUTED_ICON : SOUND_ICON;
     this.muteBtn.setAttribute("aria-label", muted ? "Unmute" : "Mute");
     this.volInput.value = String(muted ? 0 : volume);
+  }
+
+  // Split the scene's labelled sections into the chapter rail and the overlay
+  // lanes. Nesting decides: depth 0 sections are consecutive chapters, so the
+  // rail cuts each segment at the next label's start (beat windows may butt,
+  // overlap for a crossfade, or run unbounded). A label nested inside a
+  // labelled sequence is a sub-section of that chapter and renders on an
+  // overlay lane at its true window.
+  private deriveMarks(sections: TimelineSection[]): void {
+    // The first chapter stretches back to 0 so the rail reads full.
+    this.autoChapters = sections
+      .filter((s) => s.depth === 0)
+      .map((section, i) => ({ label: section.label, from: i === 0 ? 0 : section.from }));
+    this.overlaySections = sections.filter((s) => s.depth > 0);
   }
 
   // The scrubber: one segment per chapter sized by its span, or a single
@@ -615,28 +672,67 @@ export class WPlayer extends HTMLElement {
     this.updateTransport(source.currentFrame);
   }
 
-  // The audio lane: one block per <w-audio> clip at its timeline position, so
-  // sound is visible while scrubbing. Purely informational.
-  private renderLane(clips: AudioClip[]): void {
+  // Overlay lanes: nested labels at their true windows, packed so overlapping
+  // sections stack into extra rows. Clicking one seeks to its start.
+  private renderOverlays(): void {
     const source = this.boundSource;
-    if (!source || clips.length === 0) {
-      this.laneEl.hidden = true;
-      this.laneEl.replaceChildren();
-      return;
-    }
+    if (!source) return;
     const duration = source.durationInFrames;
-    this.laneEl.hidden = false;
-    this.laneEl.replaceChildren(
-      ...clips.map((clip) => {
-        const from = Math.max(0, clip.startFrame);
-        const to = Math.min(duration, clip.endFrame);
-        const el = document.createElement("div");
-        el.className = "clip";
-        el.style.left = `${(from / duration) * 100}%`;
-        el.style.width = `${(Math.max(1, to - from) / duration) * 100}%`;
-        el.textContent = basename(clip.src);
-        el.title = clip.src;
-        return el;
+    this.sublanesEl.replaceChildren(
+      ...packLanes(this.overlaySections).map((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "subrow";
+        for (const section of row) {
+          const el = document.createElement("button");
+          el.className = "sub";
+          el.style.left = `${(section.from / duration) * 100}%`;
+          el.style.width = `${(Math.max(1, section.to - section.from) / duration) * 100}%`;
+          el.dataset.from = String(section.from);
+          el.dataset.to = String(section.to);
+          el.tabIndex = -1;
+          const label = document.createElement("span");
+          label.textContent = section.label;
+          el.appendChild(label);
+          el.setAttribute("aria-label", section.label);
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.boundSource?.seek(section.from);
+          });
+          rowEl.appendChild(el);
+        }
+        return rowEl;
+      }),
+    );
+  }
+
+  // Audio lanes: one block per <w-audio> clip at its timeline position, so
+  // sound is visible while scrubbing. Overlapping clips (a music bed under
+  // effects) pack into separate lanes. Purely informational.
+  private renderAudioLanes(clips: AudioClip[]): void {
+    const source = this.boundSource;
+    if (!source) return;
+    const duration = source.durationInFrames;
+    const spans = clips
+      .map((clip) => ({
+        from: Math.max(0, clip.startFrame),
+        to: Math.min(duration, clip.endFrame),
+        src: clip.src,
+      }))
+      .filter((span) => span.to > span.from);
+    this.lanesEl.replaceChildren(
+      ...packLanes(spans).map((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "lane";
+        for (const span of row) {
+          const el = document.createElement("div");
+          el.className = "clip";
+          el.style.left = `${(span.from / duration) * 100}%`;
+          el.style.width = `${(Math.max(1, span.to - span.from) / duration) * 100}%`;
+          el.textContent = basename(span.src);
+          el.title = span.src;
+          rowEl.appendChild(el);
+        }
+        return rowEl;
       }),
     );
   }
