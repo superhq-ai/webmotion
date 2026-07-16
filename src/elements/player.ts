@@ -56,6 +56,20 @@ const STYLE = `
     outline: none;
   }
   :host(:fullscreen) { background: var(--w-player-fullscreen-bg, #000); }
+  /* Fullscreen sits on black, so the bar switches to its own light-on-dark
+     scheme. Declared on .bar directly: values set here beat the page theme
+     inherited through the host, which is tuned for the page background. */
+  :host(:fullscreen) .bar {
+    --w-player-accent: #f5f5f7;
+    --w-player-accent-contrast: #111;
+    --w-player-line: rgba(255, 255, 255, 0.18);
+    --w-player-chip: rgba(255, 255, 255, 0.14);
+    --w-player-chip-active: rgba(255, 255, 255, 0.34);
+    --w-player-audio: rgba(255, 255, 255, 0.1);
+    --w-player-audio-line: rgba(255, 255, 255, 0.28);
+    color: #f5f5f7;
+    background: #000;
+  }
   .viewport {
     flex: 1 1 auto;
     min-height: 0;
