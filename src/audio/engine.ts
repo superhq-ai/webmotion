@@ -67,6 +67,10 @@ export interface ScheduledAudio {
  * clock; clips that ended before it are skipped, clips already underway start
  * partway in. The gain envelope is applied as linear ramps, so preview and
  * offline export produce the same mix.
+ *
+ * `destination` routes the mix through a caller-owned node (a preview master
+ * gain for volume/mute). It defaults to the context's destination; export
+ * renders never pass one, so listener volume cannot leak into the file.
  */
 export function scheduleClips(
   ctx: BaseAudioContext,
@@ -75,6 +79,7 @@ export function scheduleClips(
   fps: number,
   fromFrame: number,
   contextStartTime: number,
+  destination: AudioNode = ctx.destination,
 ): ScheduledAudio {
   const sources: AudioBufferSourceNode[] = [];
 
@@ -122,7 +127,7 @@ export function scheduleClips(
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(destination);
     source.start(when, offsetSec, clipEndSec);
     sources.push(source);
   }

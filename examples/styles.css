@@ -209,137 +209,26 @@ button {
   cursor: default;
 }
 
-/* Stage */
-.stage-frame {
+/* Stage: the standard <w-player> transport, themed to the app. */
+w-player.stage {
   flex: 1;
   min-height: 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --w-player-accent: var(--ink);
+  --w-player-accent-contrast: #fff;
+  --w-player-line: var(--line);
+  --w-player-chip: var(--chip);
+  --w-player-chip-active: var(--chip-active);
+}
+w-player.stage::part(viewport) {
   padding: 20px;
 }
-canvas.stage {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line);
-}
-/* Element-backed stage (<w-composition>). The player sizes the shell's width
-   to fit the pane; the element then scales itself to the shell's width. */
-.stage-shell {
-  max-width: 100%;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.stage-element {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line);
-}
-
-/* Controls: one slim bar. Play, time, then the chaptered track. */
-.controls {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 14px;
+w-player.stage::part(bar) {
   padding: 12px 20px;
-  border-top: 1px solid var(--line);
 }
-
-.play-btn {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--ink);
-  color: #fff;
-  transition: opacity 0.12s ease;
-}
-.play-btn:hover {
-  opacity: 0.85;
-}
-.play-btn svg {
-  display: block;
-}
-
-.time {
-  flex: none;
-  font-size: 12.5px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  gap: 5px;
-}
-.time-cur {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-/* The track: chapter segments with a playhead line and an invisible range
-   overlay that keeps the whole thing scrubbable and keyboard accessible. */
-.track {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-.chapters {
-  display: flex;
-  gap: 4px;
-}
-.chapter {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 7px;
-  background: var(--chip);
-  color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-.chapter:hover {
-  background: var(--chip-hover);
-}
-.chapter.active {
-  background: var(--chip-active);
-  color: var(--ink);
-}
-.chapter-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.playhead {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 0;
-  border-left: 1.5px solid var(--ink);
-  pointer-events: none;
-  transition: left 0.03s linear;
-}
-
-.seek {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
+.stage-element,
+.stage-canvas {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
 }
 
 /* Collapsible markup panel for declarative demos */

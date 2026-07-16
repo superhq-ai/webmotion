@@ -63,8 +63,9 @@ Import once, then the scene is markup:
 
 | Element | Attributes | Notes |
 | --- | --- | --- |
-| `<w-composition>` | `width` `height` `fps` `duration` (frames) `poster` (frame) `autoplay` `background` `template` (selector of an inert `<template>` to instantiate) | The root. Owns the frame clock, scales itself to fit its container width. |
-| `<w-sequence>` | `from` (frame) `duration` (frames, omit = unbounded) | Timing window. Hides its subtree outside `[from, from+duration)` and shifts the frame origin to local time for descendants. Nestable; offsets accumulate. |
+| `<w-composition>` | `width` `height` `fps` `duration` (frames) `poster` (frame) `autoplay` `loop` `background` `template` (selector of an inert `<template>` to instantiate) | The root. Owns the frame clock, scales itself to fit its container width. Without `loop`, playback stops on the last frame and fires `w-ended`. |
+| `<w-sequence>` | `from` (frame) `duration` (frames, omit = unbounded) `label` (chapter name shown by player UIs) | Timing window. Hides its subtree outside `[from, from+duration)` and shifts the frame origin to local time for descendants. Nestable; offsets accumulate. |
+| `<w-player>` | — (`chapters` and `timelineZoom` are JS properties) | The standard transport around a slotted `<w-composition>`: play/pause, zoomable scrub timeline (chapters from `<w-sequence label>`, an audio lane from `<w-audio>`), volume/mute, fullscreen, keyboard control. Full spec: docs/PLAYER.md. |
 | `<w-text>` | `x` `y` `width` `height` `opacity` `text` `font` `color` `align` | Text from child text nodes (preferred) or the `text` attribute. |
 | `<w-rect>` | `x` `y` `width` `height` `opacity` `fill` (any CSS background) `radius` | Rectangle / gradient / image panel. |
 | `<w-el>` | `x` `y` `width` `height` `opacity` | Generic entity; put arbitrary HTML inside. |
@@ -103,11 +104,18 @@ const comp = document.querySelector("w-composition");
 await comp.ready;           // setup is deferred one frame after connect
 comp.seek(42);              // deterministic; fires a "w-seek" CustomEvent {detail:{frame}}
 comp.play(); comp.pause();  // preview paced by the clock, rendered by frame index
+comp.playing;               // readonly state
+comp.volume = 0.5;          // preview-only master volume (0..1); export is unaffected
+comp.muted = true;
+comp.loop = true;           // or the `loop` attribute; default is play-once + "w-ended"
+// Events: "w-play", "w-pause", "w-seek" {frame}, "w-ended", "w-volumechange" {volume, muted}
 const blob = await comp.export({
   bitrate: 8_000_000,
   onProgress: ({ frame, total }) => {},
 }); // => video/mp4 Blob
 ```
+
+For a ready-made UI wrap the composition in `<w-player>` (see the elements table); for canvas runtimes, `PlaybackController` from the core package provides the same play/seek/volume surface and events.
 
 ## Programmatic API (canvas or custom components)
 

@@ -1,8 +1,9 @@
 import { num } from "./parse.js";
 import { applyFrame } from "./registry.js";
 import { exportComposition, type ExportOptions } from "./export.js";
-import { collectAudioClips } from "../audio/schedule.js";
-import { loadClipBuffers, scheduleClips, type ScheduledAudio } from "../audio/engine.js";
+import { collectAudioClips, type AudioClip } from "../audio/schedule.js";
+import { collectSections, type TimelineSection } from "./sections.js";
+import { PlaybackController } from "../playback/controller.js";
 import { expandTemplates } from "./template.js";
 
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
@@ -125,18 +126,12 @@ class WComposition extends HTMLElement {
   private resolveReady!: () => void;
   private stage!: HTMLElement;
   private lastWidth = -1;
-  private playing = false;
-  private rafId = 0;
   private setupDone = false;
-  private playToken = 0;
-  private audioCtx: AudioContext | null = null;
-  private audioHandle: ScheduledAudio | null = null;
-  private clock: {
-    audioCtx: AudioContext | null;
-    t0: number;
-    wall0: number;
-    baseFrame: number;
-  } | null = null;
+  private controller: PlaybackController | null = null;
+  // Values assigned before setup, applied when the controller exists.
+  private pendingVolume = 1;
+  private pendingMuted = false;
+  private pendingLoop: boolean | null = null;
 
   constructor() {
     super();
@@ -157,6 +152,16 @@ class WComposition extends HTMLElement {
   private setup(): void {
     if (this.setupDone) return;
     this.setupDone = true;
+
+    // Re-route values assigned to accessor names before the element upgraded;
+    // an own property from that window would shadow the class accessor.
+    for (const name of ["volume", "muted", "loop"] as const) {
+      if (Object.prototype.hasOwnProperty.call(this, name)) {
+        const value = (this as Record<string, unknown>)[name as string];
+        delete (this as Record<string, unknown>)[name as string];
+        (this as Record<string, unknown>)[name as string] = value;
+      }
+    }
 
     this.width = num(this.getAttribute("width"), 1280);
     this.height = num(this.getAttribute("height"), 720);
@@ -189,6 +194,28 @@ class WComposition extends HTMLElement {
       new ResizeObserver(() => this.layoutStage()).observe(this);
     }
 
+    // The shared preview clock. The element is a thin shell over it: frames
+    // land through renderFrameAt, state comes back out as re-dispatched w-*
+    // events, so listeners bind to the element like any media element.
+    const controller = new PlaybackController({
+      fps: this.fps,
+      durationInFrames: this.durationInFrames,
+      renderFrame: (frame) => {
+        this.currentFrame = frame;
+        this.renderFrameAt(frame);
+      },
+      collectClips: () => collectAudioClips(this.stage, this.fps, this.durationInFrames),
+    });
+    controller.loop = this.pendingLoop ?? this.hasAttribute("loop");
+    controller.volume = this.pendingVolume;
+    controller.muted = this.pendingMuted;
+    for (const type of ["w-play", "w-pause", "w-seek", "w-ended", "w-volumechange"]) {
+      controller.addEventListener(type, (e) => {
+        this.dispatchEvent(new CustomEvent(type, { detail: (e as CustomEvent).detail }));
+      });
+    }
+    this.controller = controller;
+
     this.seek(num(this.getAttribute("poster"), 0));
     this.resolveReady();
     if (this.hasAttribute("autoplay")) this.play();
@@ -200,7 +227,10 @@ class WComposition extends HTMLElement {
       if (avail === 0) return;
     }
     this.lastWidth = avail;
-    const scale = Math.min(1, avail / this.width);
+    // Fill the container width, up or down, like a replaced element. Zoom is
+    // the host's concern: size the element (a player UI does) and the stage
+    // follows.
+    const scale = avail / this.width;
     const bg = this.getAttribute("background") ?? "transparent";
     this.stage.style.cssText =
       `position:absolute;top:0;left:0;width:${this.width}px;height:${this.height}px;` +
@@ -219,103 +249,58 @@ class WComposition extends HTMLElement {
   }
 
   seek(frame: number): void {
-    const clamped = Math.max(0, Math.min(this.durationInFrames - 1, Math.round(frame)));
-    this.currentFrame = clamped;
-    this.renderFrameAt(clamped);
-    this.dispatchEvent(new CustomEvent("w-seek", { detail: { frame: clamped } }));
-    // Scrubbing while playing restarts playback (and its audio) from here.
-    if (this.playing && clamped !== this.playbackFrame()) {
-      this.stopPlayback();
-      void this.startPlayback(clamped);
-    }
+    this.controller?.seek(frame);
   }
 
   play(): void {
-    if (this.playing) return;
-    this.playing = true;
-    const startFrame = this.currentFrame >= this.durationInFrames - 1 ? 0 : this.currentFrame;
-    void this.startPlayback(startFrame);
+    this.controller?.play();
   }
 
   pause(): void {
-    this.playing = false;
-    this.stopPlayback();
+    this.controller?.pause();
   }
 
-  // The frame the running playback clock currently points at, or -1 when the
-  // clock has not started.
-  private playbackFrame(): number {
-    if (!this.clock) return -1;
-    const elapsed = this.clock.audioCtx
-      ? Math.max(0, this.clock.audioCtx.currentTime - this.clock.t0)
-      : (performance.now() - this.clock.wall0) / 1000;
-    return this.clock.baseFrame + Math.floor(elapsed * this.fps);
+  get playing(): boolean {
+    return this.controller?.playing ?? false;
   }
 
-  // Preview playback. The clock paces which frame index is shown; each frame
-  // is still a pure function of its index, so output stays deterministic.
-  // With audio present, the audio clock is authoritative.
-  private async startPlayback(startFrame: number): Promise<void> {
-    const token = ++this.playToken;
-    const clips = collectAudioClips(this.stage, this.fps, this.durationInFrames);
-
-    let audioCtx: AudioContext | null = null;
-    let handle: ScheduledAudio | null = null;
-    let t0 = 0;
-    if (clips.length > 0 && typeof AudioContext !== "undefined") {
-      this.audioCtx ??= new AudioContext();
-      audioCtx = this.audioCtx;
-      if (audioCtx.state === "suspended") {
-        // Needs a user gesture; if resume fails we play silent on wall clock.
-        try {
-          await audioCtx.resume();
-        } catch {
-          audioCtx = null;
-        }
-      }
-      if (audioCtx && audioCtx.state === "running") {
-        const buffers = await loadClipBuffers(audioCtx, clips);
-        if (!this.playing || token !== this.playToken) return;
-        t0 = audioCtx.currentTime + 0.05;
-        handle = scheduleClips(audioCtx, clips, buffers, this.fps, startFrame, t0);
-      } else {
-        audioCtx = null;
-      }
-    }
-    if (!this.playing || token !== this.playToken) {
-      handle?.stop();
-      return;
-    }
-
-    this.audioHandle = handle;
-    this.clock = { audioCtx, t0, wall0: performance.now(), baseFrame: startFrame };
-
-    const tick = (): void => {
-      if (!this.playing || token !== this.playToken) return;
-      const f = this.playbackFrame();
-      if (f >= this.durationInFrames) {
-        // Loop: restart clock and audio from the top.
-        this.stopPlayback();
-        void this.startPlayback(0);
-        return;
-      }
-      if (f !== this.currentFrame) {
-        this.currentFrame = f;
-        this.renderFrameAt(f);
-        this.dispatchEvent(new CustomEvent("w-seek", { detail: { frame: f } }));
-      }
-      this.rafId = requestAnimationFrame(tick);
-    };
-    this.rafId = requestAnimationFrame(tick);
+  /** Preview volume, 0..1. Export mixes are unaffected. */
+  get volume(): number {
+    return this.controller ? this.controller.volume : this.pendingVolume;
   }
 
-  private stopPlayback(): void {
-    this.playToken++;
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-    this.rafId = 0;
-    this.audioHandle?.stop();
-    this.audioHandle = null;
-    this.clock = null;
+  set volume(value: number) {
+    if (this.controller) this.controller.volume = value;
+    else this.pendingVolume = value;
+  }
+
+  get muted(): boolean {
+    return this.controller ? this.controller.muted : this.pendingMuted;
+  }
+
+  set muted(value: boolean) {
+    if (this.controller) this.controller.muted = value;
+    else this.pendingMuted = value;
+  }
+
+  /** Labelled <w-sequence> sections in absolute frames, for timeline UIs. */
+  sections(): TimelineSection[] {
+    return this.setupDone ? collectSections(this.stage, this.durationInFrames) : [];
+  }
+
+  /** The <w-audio> clips placed on the timeline, for audio-lane UIs. */
+  audioClips(): AudioClip[] {
+    return this.setupDone ? collectAudioClips(this.stage, this.fps, this.durationInFrames) : [];
+  }
+
+  /** Whether playback wraps at the end; the `loop` attribute seeds it. */
+  get loop(): boolean {
+    return this.controller ? this.controller.loop : (this.pendingLoop ?? this.hasAttribute("loop"));
+  }
+
+  set loop(value: boolean) {
+    if (this.controller) this.controller.loop = value;
+    else this.pendingLoop = value;
   }
 
   async export(options: ExportOptions = {}): Promise<Blob> {

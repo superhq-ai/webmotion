@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineElements, WComposition } from "./elements.js";
 
 beforeAll(() => {
@@ -203,6 +203,81 @@ describe("WComposition", () => {
     comp.seek(10);
     expect(a.style.opacity).toBe("1");
     expect(b.style.opacity).toBe("0.2");
+  });
+
+  it("exposes playing state and reports it through w-play/w-pause", async () => {
+    const comp = await mountComposition(
+      `<w-composition width="640" height="360" duration="60"></w-composition>`,
+    );
+    const seen: string[] = [];
+    comp.addEventListener("w-play", () => seen.push("play"));
+    comp.addEventListener("w-pause", () => seen.push("pause"));
+
+    expect(comp.playing).toBe(false);
+    comp.play();
+    expect(comp.playing).toBe(true);
+    comp.pause();
+    expect(comp.playing).toBe(false);
+    expect(seen).toEqual(["play", "pause"]);
+  });
+
+  it("seeds loop from the attribute and accepts property writes", async () => {
+    const looped = await mountComposition(
+      `<w-composition width="640" height="360" duration="60" loop></w-composition>`,
+    );
+    expect(looped.loop).toBe(true);
+
+    const plain = await mountComposition(
+      `<w-composition width="640" height="360" duration="60"></w-composition>`,
+    );
+    expect(plain.loop).toBe(false);
+    plain.loop = true;
+    expect(plain.loop).toBe(true);
+  });
+
+  it("holds volume and mute, clamped, with w-volumechange", async () => {
+    const comp = await mountComposition(
+      `<w-composition width="640" height="360" duration="60"></w-composition>`,
+    );
+    const changes: Array<{ volume: number; muted: boolean }> = [];
+    comp.addEventListener("w-volumechange", (e) => changes.push((e as CustomEvent).detail));
+
+    comp.volume = 0.4;
+    comp.muted = true;
+    expect(comp.volume).toBe(0.4);
+    expect(comp.muted).toBe(true);
+    comp.volume = 5;
+    expect(comp.volume).toBe(1);
+    expect(changes).toEqual([
+      { volume: 0.4, muted: false },
+      { volume: 0.4, muted: true },
+      { volume: 1, muted: true },
+    ]);
+  });
+
+  it("keeps volume assigned before setup", async () => {
+    const comp = document.createElement("w-composition") as WComposition;
+    comp.setAttribute("duration", "60");
+    comp.volume = 0.25;
+    comp.muted = true;
+    document.body.appendChild(comp);
+    await comp.ready;
+
+    expect(comp.volume).toBe(0.25);
+    expect(comp.muted).toBe(true);
+  });
+
+  it("stops on the last frame and fires w-ended without loop", async () => {
+    const comp = await mountComposition(
+      `<w-composition width="640" height="360" fps="1000" duration="4"></w-composition>`,
+    );
+    let ended = 0;
+    comp.addEventListener("w-ended", () => ended++);
+
+    comp.play();
+    await vi.waitFor(() => expect(ended).toBe(1), { timeout: 2000 });
+    expect(comp.playing).toBe(false);
+    expect(comp.currentFrame).toBe(3);
   });
 
   it("drives sequences from the composition frame", async () => {

@@ -30,6 +30,9 @@ export { type EasingFunction } from "./animation/easing.js";
 export { Runtime, type RuntimeConfig } from "./runtime/runtime.js";
 export { Layer, type LayerConfig } from "./runtime/layer.js";
 
+// Preview playback: the one clock for pacing, audio, volume, and loop state.
+export { PlaybackController, type PlaybackMedia } from "./playback/controller.js";
+
 // Renderers.
 export { type Renderer } from "./render/renderer.js";
 export { NullRenderer } from "./render/null-renderer.js";

@@ -46,6 +46,8 @@ A clip is audible from its start until the earliest of: its `duration`, its sour
 
 `composition.play()` collects clips, decodes them (cached per context), and schedules them on a live `AudioContext`. When audio is present, **the audio clock paces the frames**; each rendered frame is still a pure function of its index. Seeking while playing reschedules the clips from the new position; looping restarts them.
 
+The live mix routes through a master gain shaped by the composition's `volume` and `muted` properties (see [PLAYER.md](./PLAYER.md)). These are preview listening controls only: the export mixdown never passes through the master gain, so a muted preview still exports full-volume audio.
+
 Browser autoplay policy applies: an `AudioContext` only starts after a user gesture. A composition with `autoplay` previews silent until the first interaction; a play button counts.
 
 ## Export
