@@ -13,6 +13,8 @@ import {
   renderAudioMix,
 } from "../audio/export.js";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
+import { StageLayerPlanner } from "./compositor.js";
+import { setCompositorStage } from "./registry.js";
 
 // What exportComposition needs from a composition to render it to video: its
 // dimensions, the DOM to rasterize, and a way to set a frame.
@@ -66,10 +68,19 @@ export async function exportComposition(
     durationInFrames: target.durationInFrames,
   });
 
+  // Layer compositing: top-level entities rasterize once and are drawn with
+  // per-frame transform and opacity at composite time, so tweens, fades, and
+  // filter effects cost a canvas draw instead of a full re-rasterization.
+  // Compositor mode makes the registry capture those values per frame rather
+  // than writing them to inline styles.
+  const planner = new StageLayerPlanner(target.stage);
+  setCompositorStage(target.stage);
+
   const renderer = new HtmlRenderer(target.width, target.height, {
     canvas: makeCanvas(target.width, target.height),
     container: target.stage,
     background: "rgba(0,0,0,0)",
+    layerPlanner: planner,
   });
 
   const driver: WebMotionComponent = {
@@ -122,6 +133,8 @@ export async function exportComposition(
     });
     return new Blob([muxer.target.buffer], { type: "video/mp4" });
   } finally {
+    setCompositorStage(null);
+    planner.dispose();
     await runtime.destroy();
   }
 }

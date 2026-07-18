@@ -15,7 +15,20 @@ interface RasterizerEntry {
   context: CanvasRenderingContext2D;
   cssW: number;
   cssH: number;
+  // Extra css pixels rasterized on every side of the border box, so paint that
+  // escapes it (shadows, blur, overflowing children) survives per-layer
+  // rasterization. 0 for whole-container rasters.
+  bleed: number;
   lastSvg?: string;
+}
+
+export interface SnapshotOptions {
+  // Rasterize as a standalone layer: size to the border box, neutralize the
+  // root's layout position, and pad by `bleed` css pixels on each side.
+  bleed?: number;
+  // Raster resolution multiplier on top of the device pixel ratio, for layers
+  // drawn scaled up at composite time.
+  supersample?: number;
 }
 
 // One frame's serialized state; svg is null when the frame is identical to the
@@ -76,19 +89,22 @@ export class DomRasterizer {
   // state (main thread, sequential); rasterizeSnapshot() is the long pole (the
   // browser parses the SVG and decodes embedded images off the main thread, so
   // several can be in flight); present() draws in frame order.
-  async snapshot(node: HTMLElement): Promise<RasterSnapshot> {
-    const cssW = node.clientWidth || node.offsetWidth;
-    const cssH = node.clientHeight || node.offsetHeight;
+  async snapshot(node: HTMLElement, opts?: SnapshotOptions): Promise<RasterSnapshot> {
+    const layerMode = opts?.bleed !== undefined;
+    const bleed = opts?.bleed ?? 0;
+    // Layers rasterize their full border box; whole-container rasters keep the
+    // historical content-box measurement.
+    const cssW = layerMode ? node.offsetWidth : node.clientWidth || node.offsetWidth;
+    const cssH = layerMode ? node.offsetHeight : node.clientHeight || node.offsetHeight;
     if (cssW === 0 || cssH === 0) {
       const existing = this.entries.get(node);
-      const entry = existing ?? this.ensureEntry(node, 1, 1);
+      const entry = existing ?? this.ensureEntry(node, 1, 1, 0, 1);
       return { entry, svg: null };
     }
 
-    const entry = this.ensureEntry(node, cssW, cssH);
-    const dpr = Math.max(1, this.pixelRatio);
+    const entry = this.ensureEntry(node, cssW, cssH, bleed, Math.max(1, opts?.supersample ?? 1));
     const t = performance.now();
-    const svg = await this.buildSvg(node, cssW, cssH, dpr);
+    const svg = await this.buildSvg(node, cssW, cssH, layerMode ? bleed : null);
     profAdd("buildSvg", performance.now() - t);
 
     if (svg === entry.lastSvg) {
@@ -125,6 +141,12 @@ export class DomRasterizer {
     return this.entries.get(node)?.canvas ?? null;
   }
 
+  // Drop one node's cached canvas and serialized state, e.g. when a layer
+  // leaves the composition for good.
+  release(node: HTMLElement): void {
+    this.entries.delete(node);
+  }
+
   getCssSize(node: HTMLElement): { width: number; height: number } | null {
     const e = this.entries.get(node);
     return e ? { width: e.cssW, height: e.cssH } : null;
@@ -157,32 +179,23 @@ export class DomRasterizer {
     this.entries.clear();
     this.pageStylesCssPromise = null;
     dataUrlCache.clear();
+    inlinedCssCache.clear();
     if (mirrorDiv) {
       mirrorDiv.remove();
       mirrorDiv = null;
     }
   }
 
-  // Copy state that a plain clone loses (scroll, running animations, caret and
-  // selection) onto the cloned tree so the raster matches the live element.
-  captureDynamicStateOnClone(src: HTMLElement, dst: HTMLElement): void {
-    const srcAll = [src, ...src.querySelectorAll<HTMLElement>("*")];
-    const dstAll = [dst, ...dst.querySelectorAll<HTMLElement>("*")];
-    if (srcAll.length !== dstAll.length) return;
-    for (let i = 0; i < srcAll.length; i++) {
-      const s = srcAll[i];
-      const d = dstAll[i];
-      if (!s || !d) continue;
-      writeDynamicStateInline(s, d);
-    }
-    injectCaretAndSelection(src, dst);
-    injectPageSelection(src, dst);
-  }
-
-  private ensureEntry(node: HTMLElement, cssW: number, cssH: number): RasterizerEntry {
-    const dpr = Math.max(1, this.pixelRatio);
-    const width = Math.max(1, Math.ceil(cssW * dpr));
-    const height = Math.max(1, Math.ceil(cssH * dpr));
+  private ensureEntry(
+    node: HTMLElement,
+    cssW: number,
+    cssH: number,
+    bleed: number,
+    supersample: number,
+  ): RasterizerEntry {
+    const dpr = Math.max(1, this.pixelRatio) * supersample;
+    const width = Math.max(1, Math.ceil((cssW + 2 * bleed) * dpr));
+    const height = Math.max(1, Math.ceil((cssH + 2 * bleed) * dpr));
     let entry = this.entries.get(node);
     if (!entry) {
       const canvas = document.createElement("canvas");
@@ -190,7 +203,7 @@ export class DomRasterizer {
       canvas.height = height;
       const context = canvas.getContext("2d");
       if (!context) throw new Error("DomRasterizer: failed to acquire a 2D context");
-      entry = { canvas, context, cssW, cssH };
+      entry = { canvas, context, cssW, cssH, bleed };
       this.entries.set(node, entry);
     } else {
       if (entry.canvas.width !== width || entry.canvas.height !== height) {
@@ -199,6 +212,7 @@ export class DomRasterizer {
       }
       entry.cssW = cssW;
       entry.cssH = cssH;
+      entry.bleed = bleed;
     }
     return entry;
   }
@@ -207,14 +221,31 @@ export class DomRasterizer {
     node: HTMLElement,
     cssW: number,
     cssH: number,
-    _dpr = 1,
+    layerBleed: number | null,
   ): Promise<string> {
     let t = performance.now();
     const clone = await prepareClone(node);
-    this.captureDynamicStateOnClone(node, clone);
+    if (layerBleed !== null) {
+      // A layer raster stands alone: pin the clone at the bleed offset and
+      // freeze its border-box size so losing its layout context (absolute
+      // offsets, auto sizing against the parent) cannot move or resize it.
+      clone.style.position = "absolute";
+      clone.style.left = `${layerBleed}px`;
+      clone.style.top = `${layerBleed}px`;
+      clone.style.right = "auto";
+      clone.style.bottom = "auto";
+      clone.style.margin = "0";
+      clone.style.boxSizing = "border-box";
+      clone.style.width = `${cssW}px`;
+      clone.style.height = `${cssH}px`;
+    }
     profAdd("prepareClone", performance.now() - t);
     t = performance.now();
-    const innerXml = wrapClone(node, new XMLSerializer().serializeToString(clone));
+    const cloneXml = new XMLSerializer().serializeToString(clone);
+    const outW = cssW + 2 * (layerBleed ?? 0);
+    const outH = cssH + 2 * (layerBleed ?? 0);
+    const innerXml =
+      layerBleed !== null ? wrapLayerClone(cloneXml, outW, outH) : wrapClone(node, cloneXml);
     profAdd("serialize", performance.now() - t);
 
     const pageStylesCss = await this.getPageStylesCss();
@@ -223,7 +254,7 @@ export class DomRasterizer {
 
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg"` +
-      ` width="${cssW}" height="${cssH}" viewBox="0 0 ${cssW} ${cssH}">` +
+      ` width="${outW}" height="${outH}" viewBox="0 0 ${outW} ${outH}">` +
       `<style><![CDATA[${style.replace(/]]>/g, "]]]]><![CDATA[>")}]]></style>` +
       `<foreignObject x="0" y="0" width="100%" height="100%">${innerXml}</foreignObject>` +
       `</svg>`;
@@ -301,7 +332,9 @@ const INHERITED_PROPS = [
 async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   const clone = node.cloneNode(true) as HTMLElement;
   syncFormState(node, clone);
-  freezeResolvedTextMetrics(node, clone);
+  syncCloneTree(node, clone);
+  injectCaretAndSelection(node, clone);
+  injectPageSelection(node, clone);
   clone.style.removeProperty("transform");
   clone.style.opacity = "1";
   clone.style.visibility = "visible";
@@ -314,6 +347,21 @@ async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   await inlineExternalImages(clone);
   clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
   return clone;
+}
+
+// Wrapper for a standalone layer raster: a neutral relative container exactly
+// the size of the SVG viewport, with the clone pinned inside it at the bleed
+// offset. No ancestor classes are reproduced; inherited properties are bridged
+// onto the clone root by prepareClone instead.
+function wrapLayerClone(cloneXml: string, outW: number, outH: number): string {
+  return (
+    `<html xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0;background:transparent !important;">` +
+    `<body style="margin:0;padding:0;background:transparent !important;">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml"` +
+    ` style="position:relative;width:${outW}px;height:${outH}px;margin:0;padding:0;">` +
+    cloneXml +
+    `</div></body></html>`
+  );
 }
 
 function wrapClone(node: HTMLElement, cloneXml: string): string {
@@ -343,6 +391,9 @@ async function loadSvgAsImage(
   cssW: number,
   cssH: number,
 ): Promise<HTMLImageElement> {
+  // Data URL, not a blob URL: Chromium taints a canvas that draws a
+  // foreignObject SVG loaded from a blob URL, which kills VideoFrame capture.
+  // The percent-encode cost is the price of a capturable canvas.
   const t = performance.now();
   const dataUrl = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
   profAdd("percentEncode", performance.now() - t);
@@ -481,7 +532,11 @@ function escapeXmlAttr(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function writeDynamicStateInline(src: HTMLElement, dst: HTMLElement): void {
+function writeDynamicStateInline(
+  src: HTMLElement,
+  dst: HTMLElement,
+  cs: CSSStyleDeclaration,
+): void {
   if (src.scrollLeft !== 0 || src.scrollTop !== 0) {
     dst.style.setProperty("--scroll-left", -src.scrollLeft + "px");
     dst.style.setProperty("--scroll-top", -src.scrollTop + "px");
@@ -492,7 +547,7 @@ function writeDynamicStateInline(src: HTMLElement, dst: HTMLElement): void {
   const anim = animations[0];
   if (!anim) return;
   const timeMs = typeof anim.currentTime === "number" ? anim.currentTime : 0;
-  const delayStr = getComputedStyle(src).animationDelay;
+  const delayStr = cs.animationDelay;
   const delaySec = delayStr.endsWith("ms") ? parseFloat(delayStr) / 1000 : parseFloat(delayStr);
   const adjustedDelaySec = (delaySec || 0) - timeMs / 1000;
   dst.style.setProperty("--animation-delay", adjustedDelaySec + "s");
@@ -741,22 +796,39 @@ const VERTICAL_PROPS = [
   "borderTopWidth", "borderBottomWidth",
 ] as const;
 
-// Copy vertical metrics from the live element onto the clone, flooring
-// subpixel values so wrapped text lands on the same lines after rasterization.
-function freezeResolvedTextMetrics(src: HTMLElement, dst: HTMLElement): void {
+// One pass over the source and clone trees together: prune subtrees the frame
+// cannot show, freeze resolved text metrics, and copy dynamic state (scroll,
+// running animations) onto the clone. Pruning display:none subtrees is pixel
+// neutral because they rasterize to nothing either way, but keeping them costs
+// serialize bytes, style reads, and image inlining on every frame; inactive
+// <w-sequence> scenes in a long composition are exactly this case.
+function syncCloneTree(src: HTMLElement, dst: HTMLElement): void {
   const srcAll = [src, ...src.querySelectorAll<HTMLElement>("*")];
   const dstAll = [dst, ...dst.querySelectorAll<HTMLElement>("*")];
   if (srcAll.length !== dstAll.length) return;
+  let skipRoot: HTMLElement | null = null;
   for (let i = 0; i < srcAll.length; i++) {
     const s = srcAll[i];
     const d = dstAll[i];
     if (!s || !d) continue;
+    if (skipRoot) {
+      if (skipRoot.contains(s)) continue;
+      skipRoot = null;
+    }
     const cs = getComputedStyle(s);
+    if (i > 0 && cs.display === "none") {
+      d.remove();
+      skipRoot = s;
+      continue;
+    }
+    // Freeze vertical metrics, flooring subpixel values so wrapped text lands
+    // on the same lines after rasterization.
     for (const prop of VERTICAL_PROPS) {
       const v = parseFloat(cs[prop]);
       if (isNaN(v)) continue;
       d.style[prop] = v % 1 !== 0 ? Math.floor(v) + "px" : cs[prop];
     }
+    writeDynamicStateInline(s, d, cs);
   }
 }
 
@@ -826,20 +898,30 @@ async function inlineExternalImages(root: HTMLElement): Promise<void> {
   );
 }
 
-// Inlined style strings are identical across frames (only animated properties
-// change, and those never contain url()), so the multi-megabyte splice result
-// is memoized on the input string.
+// Bounded memo of inlined style strings, keyed on the raw css text. The key
+// must be bounded: a style attribute that mixes a url() reference with an
+// animated property (say a background image plus a per-frame transform) is a
+// fresh key every frame, and each entry holds a multi-megabyte splice result.
+// LRU order keeps static entries hot while churny ones cycle out.
+const INLINED_CSS_CACHE_MAX = 32;
 const inlinedCssCache = new Map<string, Promise<string>>();
 
 async function inlineCssUrlsCached(cssText: string): Promise<string> {
   let hit = inlinedCssCache.get(cssText);
-  if (!hit) {
-    hit = inlineCssUrls(cssText);
+  if (hit) {
+    inlinedCssCache.delete(cssText);
     inlinedCssCache.set(cssText, hit);
-    hit.catch(() => {
-      if (inlinedCssCache.get(cssText) === hit) inlinedCssCache.delete(cssText);
-    });
+    return hit;
   }
+  hit = inlineCssUrls(cssText);
+  inlinedCssCache.set(cssText, hit);
+  if (inlinedCssCache.size > INLINED_CSS_CACHE_MAX) {
+    const oldest = inlinedCssCache.keys().next().value;
+    if (oldest !== undefined) inlinedCssCache.delete(oldest);
+  }
+  hit.catch(() => {
+    if (inlinedCssCache.get(cssText) === hit) inlinedCssCache.delete(cssText);
+  });
   return hit;
 }
 

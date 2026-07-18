@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebMotion export benchmark</title>
+    <style>
+      body { font-family: ui-monospace, Menlo, monospace; margin: 20px; background: #0d0d0f; color: #e8e8e6; }
+      #status { margin: 12px 0; }
+      pre { background: #17171a; padding: 12px; border-radius: 8px; overflow-x: auto; }
+      .comp-holder { width: 640px; }
+    </style>
+  </head>
+  <body>
+    <h1>Export benchmark</h1>
+    <p>
+      Params: <code>?run=1&scenes=4&imgs=12&sceneframes=150</code>.
+      Result lands in <code>window.__BENCH_RESULT</code> and the pre below.
+    </p>
+    <div id="status">building…</div>
+    <pre id="result"></pre>
+    <div class="comp-holder" id="holder"></div>
+    <script type="module" src="./bench.js"></script>
+  </body>
+</html>

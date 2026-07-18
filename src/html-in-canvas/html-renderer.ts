@@ -6,11 +6,67 @@ export interface HtmlRenderContext extends RenderContext {
   readonly root: HTMLElement;
 }
 
+/**
+ * One compositable layer for a frame: a DOM subtree rasterized on its own,
+ * drawn at `rect` with transform and opacity applied at composite time. The
+ * raster is cached per node; `dirty` marks content changes that force a
+ * re-rasterization. Transform is either per-frame animated components, a raw
+ * css transform string (static inline transforms), or null for identity.
+ */
+export interface CompositeLayerPlan {
+  node: HTMLElement;
+  rect: { left: number; top: number; width: number; height: number };
+  transform: { tx: number; ty: number; scale: number; rot: number } | string | null;
+  opacity: number;
+  dirty: boolean;
+  /** Raster resolution multiplier, above 1 for layers that zoom in. */
+  supersample?: number;
+}
+
+export interface LayerFramePlan {
+  layers: CompositeLayerPlan[];
+  /** Nodes gone from the plan whose cached rasters can be dropped. */
+  released: HTMLElement[];
+}
+
+/**
+ * Supplied by a host that understands the container's structure (the elements
+ * runtime does). Called once per frame after components ran; returning null
+ * falls back to whole-container rasterization for that frame.
+ */
+export interface LayerPlanner {
+  planFrame(stage: HTMLElement): LayerFramePlan | null;
+  dispose?(): void;
+}
+
 export interface HtmlRendererOptions {
   canvas?: HTMLCanvasElement | OffscreenCanvas;
   background?: string;
   container?: HTMLElement;
+  layerPlanner?: LayerPlanner;
 }
+
+// Paint rasterized outside a layer's border box (shadows, blur, overflowing
+// children) survives up to this many css pixels on each side.
+const LAYER_BLEED = 64;
+
+interface LayerSnapshotItem {
+  layer: CompositeLayerPlan;
+  snapshot: RasterSnapshot | null;
+}
+
+interface LayerRasterItem {
+  layer: CompositeLayerPlan;
+  raster: RasterResult | null;
+}
+
+type FrameSnapshotPayload =
+  | { mode: "stage"; snapshot: RasterSnapshot }
+  | { mode: "layers"; items: LayerSnapshotItem[]; released: HTMLElement[] };
+
+type FrameRasterPayload =
+  | { mode: "stage"; raster: RasterResult }
+  | { mode: "layers"; items: LayerRasterItem[]; released: HTMLElement[] };
 
 export class HtmlRenderer implements Renderer<HtmlRenderContext> {
   readonly width: number;
@@ -23,6 +79,7 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
   private createdContainer = false;
   private rasterizer!: DomRasterizer;
   private pipelineActive = false;
+  private readonly layerPlanner: LayerPlanner | undefined;
 
   constructor(width: number, height: number, options: HtmlRendererOptions = {}) {
     this.width = width;
@@ -32,6 +89,7 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
     this.outputCanvas.width = width;
     this.outputCanvas.height = height;
     this.providedContainer = options.container;
+    this.layerPlanner = options.layerPlanner;
   }
 
   get container(): HTMLElement {
@@ -92,12 +150,53 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
 
   async snapshotFrame(): Promise<unknown> {
     await waitForFonts();
-    return this.rasterizer.snapshot(this.stagingContainer);
+    if (this.layerPlanner) {
+      const plan = this.layerPlanner.planFrame(this.stagingContainer);
+      if (plan) {
+        const items: LayerSnapshotItem[] = [];
+        for (const layer of plan.layers) {
+          // Clean layers reuse their cached raster untouched: no clone, no
+          // serialization, no style reads. This is where per-layer compositing
+          // pays off; only content changes cost anything.
+          const snapshot = layer.dirty
+            ? await this.rasterizer.snapshot(layer.node, {
+                bleed: LAYER_BLEED,
+                ...(layer.supersample !== undefined ? { supersample: layer.supersample } : {}),
+              })
+            : null;
+          items.push({ layer, snapshot });
+        }
+        return {
+          mode: "layers",
+          items,
+          released: plan.released,
+        } satisfies FrameSnapshotPayload;
+      }
+    }
+    return {
+      mode: "stage",
+      snapshot: await this.rasterizer.snapshot(this.stagingContainer),
+    } satisfies FrameSnapshotPayload;
   }
 
   async rasterizeSnapshot(snapshot: unknown): Promise<unknown> {
+    const payload = snapshot as FrameSnapshotPayload;
     try {
-      return await this.rasterizer.rasterizeSnapshot(snapshot as RasterSnapshot);
+      if (payload.mode === "layers") {
+        const items = await Promise.all(
+          payload.items.map(async (item): Promise<LayerRasterItem> => {
+            return {
+              layer: item.layer,
+              raster: item.snapshot ? await this.rasterizer.rasterizeSnapshot(item.snapshot) : null,
+            };
+          }),
+        );
+        return { mode: "layers", items, released: payload.released } satisfies FrameRasterPayload;
+      }
+      return {
+        mode: "stage",
+        raster: await this.rasterizer.rasterizeSnapshot(payload.snapshot),
+      } satisfies FrameRasterPayload;
     } catch (error) {
       throw new Error("HtmlRenderer: failed to rasterize HTML for the current frame", {
         cause: error,
@@ -106,7 +205,7 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
   }
 
   presentSnapshot(raster: unknown): void {
-    const rasterized = this.rasterizer.present(raster as RasterResult);
+    const payload = raster as FrameRasterPayload;
     // Clear and composite in one synchronous step, with no await in between, so
     // the visible canvas swaps atomically from the previous frame to this one.
     this.outputCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -115,7 +214,62 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
       this.outputCtx.fillStyle = this.background;
       this.outputCtx.fillRect(0, 0, this.width, this.height);
     }
+    if (payload.mode === "layers") {
+      const g = globalThis as Record<string, unknown>;
+      const debug = g["__WM_LAYER_DEBUG"] === true;
+      for (const item of payload.items) {
+        if (item.raster) this.rasterizer.present(item.raster);
+        if (debug) {
+          const c = this.rasterizer.getCanvas(item.layer.node);
+          ((g["__wmLayers"] ??= []) as unknown[]).push({
+            tag: item.layer.node.tagName,
+            cls: item.layer.node.className,
+            rect: item.layer.rect,
+            opacity: item.layer.opacity,
+            dirty: item.layer.dirty,
+            hasRaster: !!item.raster,
+            hasSvg: !!(item.raster && (item.raster as { image: unknown }).image),
+            canvas: c ? c.width + "x" + c.height : "none",
+          });
+        }
+        this.compositeLayer(item.layer);
+      }
+      for (const node of payload.released) this.rasterizer.release(node);
+      return;
+    }
+    const rasterized = this.rasterizer.present(payload.raster);
     this.outputCtx.drawImage(rasterized, 0, 0, this.width, this.height);
+  }
+
+  // Draw one layer's cached raster with its compositor properties. The math
+  // mirrors css `translate(tx, ty) scale(s) rotate(r)` about the border-box
+  // center: p' = center + translation + S.R.(p - center).
+  private compositeLayer(layer: CompositeLayerPlan): void {
+    const canvas = this.rasterizer.getCanvas(layer.node);
+    if (!canvas) return;
+    const opacity = Math.min(1, Math.max(0, layer.opacity));
+    if (opacity === 0) return;
+    const { rect, transform } = layer;
+    const b = LAYER_BLEED;
+    const ctx = this.outputCtx;
+    const drawW = rect.width + 2 * b;
+    const drawH = rect.height + 2 * b;
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    if (transform && typeof transform === "object") {
+      ctx.translate(rect.left + rect.width / 2 + transform.tx, rect.top + rect.height / 2 + transform.ty);
+      ctx.scale(transform.scale, transform.scale);
+      ctx.rotate((transform.rot * Math.PI) / 180);
+      ctx.drawImage(canvas, -rect.width / 2 - b, -rect.height / 2 - b, drawW, drawH);
+    } else if (typeof transform === "string") {
+      const m = parseCssTransform(transform);
+      ctx.translate(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (m) ctx.transform(m.a, m.b, m.c, m.d, m.e, m.f);
+      ctx.drawImage(canvas, -rect.width / 2 - b, -rect.height / 2 - b, drawW, drawH);
+    } else {
+      ctx.drawImage(canvas, rect.left - b, rect.top - b, drawW, drawH);
+    }
+    ctx.restore();
   }
 
   capture(timestampMicros: number, durationMicros: number): VideoFrame | null {
@@ -136,6 +290,26 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
     // TODO: Prefer native HTML-in-Canvas APIs here once drawElementImage is
     // available across target browsers and can replace the foreignObject path.
     return new DomRasterizer();
+  }
+}
+
+// Parse a css transform string into a matrix. Returns null for identity or
+// values DOMMatrix cannot parse (percentage translates and similar); parse
+// failures warn once so a silently dropped transform is discoverable.
+let warnedBadTransform = false;
+function parseCssTransform(transform: string): DOMMatrix | null {
+  if (!transform || transform === "none") return null;
+  try {
+    return new DOMMatrix(transform);
+  } catch {
+    if (!warnedBadTransform) {
+      warnedBadTransform = true;
+      console.warn(
+        "[webmotion] could not parse a static transform for layer compositing:",
+        transform,
+      );
+    }
+    return null;
   }
 }
 

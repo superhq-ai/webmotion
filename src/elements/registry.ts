@@ -40,7 +40,7 @@ function baseName(attr: string): string {
 
 // Per-frame transform and opacity accumulators, keyed by element so we do not
 // have to augment the DOM types. Reset before a frame, composed after.
-interface FrameState {
+export interface FrameState {
   tx: number;
   ty: number;
   scale: number;
@@ -50,6 +50,54 @@ interface FrameState {
   touchedOpacity: boolean;
 }
 const frameState = new WeakMap<HTMLElement, FrameState>();
+
+// Compositor mode, used by export. While a stage is registered here, animated
+// transform and opacity of its top-level entities are captured per frame
+// instead of being written to inline styles. That keeps the rasterized content
+// of a layer byte-stable while it moves, fades, scales, or rotates; the
+// renderer applies the captured values at composite time. Entities nested
+// below another element (not directly under the stage or a sequence chain)
+// keep the inline-style path, which simply re-rasterizes their layer.
+let compositorStage: HTMLElement | null = null;
+const compositorFrame = new Map<HTMLElement, FrameState>();
+let walkDepth = 0;
+
+export function setCompositorStage(stage: HTMLElement | null): void {
+  compositorStage = stage;
+  compositorFrame.clear();
+}
+
+/** The captured compositor state for `el` on the current frame, if any. */
+export function getCompositorState(el: HTMLElement): FrameState | undefined {
+  return compositorFrame.get(el);
+}
+
+// Largest scale this element's tweens can reach, so a layer that zooms in can
+// be rasterized with enough resolution to stay sharp. Cached per element;
+// tween attributes are stable during an export.
+const maxScaleCache = new WeakMap<HTMLElement, number>();
+
+export function getMaxAnimatedScale(el: HTMLElement): number {
+  const hit = maxScaleCache.get(el);
+  if (hit !== undefined) return hit;
+  let max = 1;
+  for (const tween of gatherTweens(el)) {
+    const data = readTween(tween);
+    if (data.property === "scale") {
+      max = Math.max(max, data.from, data.to);
+    }
+  }
+  maxScaleCache.set(el, max);
+  return max;
+}
+
+// True when el sits directly on the stage or under nothing but sequences, so
+// its animated transform and opacity can be applied at composite time.
+function isCompositorLayer(el: HTMLElement): boolean {
+  let p = el.parentElement;
+  while (p && p.tagName === "W-SEQUENCE") p = p.parentElement;
+  return p === compositorStage;
+}
 
 // Cache of parsed component data per element, invalidated when the raw
 // attribute string changes, so we parse once and not every frame.
@@ -203,6 +251,15 @@ function renderEntity(el: HTMLElement, ctx: FrameContext): void {
     setAnimatedProp(el, data.property, sampleTween(data, ctx.frame), data.unit);
   }
 
+  if (compositorStage && isCompositorLayer(el)) {
+    compositorFrame.set(el, st);
+    // Clear inline values a preview pass may have left behind, otherwise the
+    // raster bakes them in and the compositor applies them a second time.
+    // Guarded so a clean element never mutates (mutations dirty the layer).
+    if (st.touchedTransform && el.style.transform) el.style.removeProperty("transform");
+    if (st.touchedOpacity && el.style.opacity) el.style.removeProperty("opacity");
+    return;
+  }
   if (st.touchedTransform) {
     el.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale}) rotate(${st.rot}deg)`;
   }
@@ -214,6 +271,17 @@ function renderEntity(el: HTMLElement, ctx: FrameContext): void {
 // Walk the subtree applying the current frame. A <w-sequence from duration>
 // shifts the frame origin for its descendants and hides them outside its window.
 export function applyFrame(container: Element, ctx: FrameContext): void {
+  // Top-level call of a frame: drop last frame's captured compositor states.
+  if (walkDepth === 0 && compositorStage) compositorFrame.clear();
+  walkDepth++;
+  try {
+    applyFrameChildren(container, ctx);
+  } finally {
+    walkDepth--;
+  }
+}
+
+function applyFrameChildren(container: Element, ctx: FrameContext): void {
   for (const child of Array.from(container.children)) {
     if (!(child instanceof HTMLElement)) continue;
     if (isInert(child.tagName)) continue;
@@ -224,7 +292,10 @@ export function applyFrame(container: Element, ctx: FrameContext): void {
       const dur = durAttr == null ? Number.POSITIVE_INFINITY : num(durAttr, 0);
       const local = ctx.frame - from;
       const active = local >= 0 && local < dur;
-      child.style.display = active ? "" : "none";
+      // Write only on change: redundant style writes register as mutations and
+      // would dirty every layer in the sequence each frame during export.
+      const display = active ? "" : "none";
+      if (child.style.display !== display) child.style.display = display;
       if (active) applyFrame(child, { ...ctx, frame: local });
       continue;
     }
