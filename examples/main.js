@@ -42,3 +42,17 @@ window.addEventListener("hashchange", fromHash);
 // Deep link to the requested demo, or fall back to the first one.
 if (!location.hash) location.hash = demos[0].id;
 else fromHash();
+
+// Live star count on the GitHub button; the button works fine without it, so
+// failures (rate limits, offline) just leave the badge hidden.
+fetch("https://api.github.com/repos/superhq-ai/webmotion")
+  .then((r) => (r.ok ? r.json() : null))
+  .then((repo) => {
+    if (!repo || typeof repo.stargazers_count !== "number") return;
+    const badge = document.getElementById("star-count");
+    if (!badge) return;
+    const n = repo.stargazers_count;
+    badge.textContent = n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n);
+    badge.hidden = false;
+  })
+  .catch(() => {});

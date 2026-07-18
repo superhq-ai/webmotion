@@ -121,6 +121,36 @@ A music bed under the whole film, faded out by envelope over the last ~40 frames
 
 Levels that sit well: loudness-normalized music around `gain` 0.8–0.9, effects 0.3–0.6. Use CC0/CC-BY sources and keep a credits file; trim and normalize clips offline (`ffmpeg -af loudnorm`) rather than shipping full-length tracks.
 
+## 3D product turntable
+
+The canonical product shot: model spinning on a turntable, studio look,
+caption stickers around it. Put the `<w-model>` directly under its sequence
+(never nested inside a wrapper entity) so it composites as a live layer, and
+put captions in a sibling wrapper:
+
+```html
+<w-sequence from="94" duration="70">
+  <w-model src="assets/product.glb" x="-40" y="380" width="1160" height="1160"
+           spin="150" rotation="18 30 -8" fov="28"
+           lights="studio" environment="studio" tone-mapping="aces" shadow="0.35">
+    <w-light type="directional" position="-4 2 -4" color="#ff2ea6" intensity="0">
+      <w-animate property="intensity" from="0" to="4" start="14" end="34" easing="easeOutCubic"></w-animate>
+    </w-light>
+    <w-animate property="scale" from="1.4" to="1" start="0" end="8" easing="cubic-bezier(0.2, 1.4, 0.3, 1)"></w-animate>
+  </w-model>
+  <w-el x="0" y="0" width="1080" height="1920"><!-- stickers, captions --></w-el>
+</w-sequence>
+```
+
+The looks, roughly: `lights="neutral"` is fine for stylized/toon models;
+photoreal products want `lights="studio" environment="studio"
+tone-mapping="aces"` (bright catalog) or `lights="dramatic"` with a colored
+`<w-light>` rim (campaign mood). `shadow` grounds the object; without it the
+model floats. `spin` of 120-170 deg/sec reads well at 30 fps; hard cuts
+between different `rotation` angles every 20-24 frames make a montage.
+Free models: Khronos glTF sample assets (credit CC-BY ones), Sketchfab
+downloadable GLBs (check license; compressed files decode automatically).
+
 ## End card
 
 ```html

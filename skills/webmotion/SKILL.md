@@ -1,6 +1,6 @@
 ---
 name: webmotion
-description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Use when the user wants motion graphics, title cards, launch/product videos, kinetic typography, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas animation exported to MP4.
+description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Includes 3D: glTF/GLB models with animation clips, turntable spins, and studio lighting via <w-model>. Use when the user wants motion graphics, title cards, launch/product videos, product turntables, kinetic typography, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas/3D animation exported to MP4.
 ---
 
 # WebMotion
@@ -20,6 +20,7 @@ Entry points:
 | `@superhq/webmotion` | Programmatic core: `Composition`, `Runtime`, `Layer`, `Sequence`, `CanvasRenderer`, `interpolate`, `Easing`, `exportVideo` |
 | `@superhq/webmotion/elements` | Declarative layer: registers all `<w-*>` custom elements on import |
 | `@superhq/webmotion/html-in-canvas` | `HtmlRenderer`: rasterizes live DOM per frame (SVG foreignObject) |
+| `@superhq/webmotion/three` | Registers `<w-model>` and `<w-light>` for 3D. Needs `npm install three` (optional peer dep); import alongside `/elements` |
 
 Preview works in any modern browser. **MP4 export needs a Chromium-based browser** (WebCodecs H.264 + `OffscreenCanvas`).
 
@@ -75,6 +76,8 @@ Import once, then the scene is markup:
 | `<w-data>` | `name` | Named JSON data (element text content), for `<w-for>`. Inert. |
 | `<w-for>` | `each` (array path) or `count` (number), `as` (default `item`), `index` (default `i`) | Repetition by macro expansion at setup: children are stamped once per item with `{...}` placeholders substituted. Full spec: docs/TEMPLATE.md. |
 | `<w-if>` | `when` (expression) | Static variant selection: stamps its children once at setup when truthy (`false`, `0`, `""`, `null`, empty arrays are falsy). No else, no comparison operators; compute booleans into the data. |
+| `<w-model>` | `src` (glTF/GLB url) `x` `y` `width` `height` `opacity` `animation` (clip name) `animation-from` `speed` `loop` `rotation` ("x y z" deg) `spin` (deg/sec around Y) `camera` `look-at` `fov` `lights` (preset) `environment` `environment-intensity` `shadow` (opacity) `tone-mapping` `exposure` `background` | 3D entity (requires the `/three` entry). Clips run on the frame clock; no camera attr auto-frames the model. DRACO, KTX2, and Meshopt compressed files decode out of the box. Full spec: docs/THREE.md. |
+| `<w-light>` | `type` (`ambient` `hemisphere` `directional` `point` `spot`) `color` `ground-color` `position` ("x y z") `intensity` `angle` `penumbra` `distance` `decay` | Child of `<w-model>`, usually with `lights="none"` on the model. Numeric properties (`intensity` `x` `y` `z` `angle` `penumbra` `distance`) tween via child `<w-animate>`. Inert. |
 
 All entities are absolutely positioned by `x`/`y`/`width`/`height` in composition pixels.
 
@@ -82,7 +85,7 @@ All entities are absolutely positioned by `x`/`y`/`width`/`height` in compositio
 
 - `<w-animate property="opacity|x|y|scale|rotate" ...>` composes into one transform + opacity per entity per frame. Any other `property` (e.g. `letter-spacing`, `border-radius`) is written to style as `value + unit` (unit taken from `to`/`from`, e.g. `to="20px"`).
 - `start`/`end` are frames in the **local time** of the nearest enclosing `<w-sequence>`. Values clamp outside the window.
-- Easings: `linear`, `easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`, `easeInSine`, `easeOutSine`, `easeInOutSine`.
+- Easings: `linear`, `easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`, `easeInSine`, `easeOutSine`, `easeInOutSine`, or any css `cubic-bezier(x1, y1, x2, y2)` string. Overshoot slams: `cubic-bezier(0.2, 1.4, 0.3, 1)` with a scale tween from ~2.2 down to 1 over 5-7 frames.
 - Apply named animations with `motion="fade-up pop-in"` (space-separated, like `class`). Resolution walks up to the nearest `<w-defs>`; inner scopes shadow outer. Application order: named left to right, then inline children; last write to a property wins.
 - **Stagger via structure, not parameters**: there is no delay attribute. Wrap instances in `<w-sequence from="8">` etc. Definitions always start at local frame 0.
 
