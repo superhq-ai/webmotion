@@ -166,7 +166,8 @@ function componentAttrs(el: HTMLElement): string[] {
 
 // Behavior, definition, audio, and template nodes: never rendered, never
 // walked as entities. <w-audio> tweens (gain) belong to the audio engine;
-// <w-for>/<w-data> subtrees are template content.
+// <w-for>/<w-data> subtrees are template content; <w-light> tweens are
+// sampled by the enclosing <w-model>.
 function isInert(tagName: string): boolean {
   return (
     tagName === "W-ANIMATE" ||
@@ -175,7 +176,8 @@ function isInert(tagName: string): boolean {
     tagName === "W-AUDIO" ||
     tagName === "W-FOR" ||
     tagName === "W-DATA" ||
-    tagName === "W-IF"
+    tagName === "W-IF" ||
+    tagName === "W-LIGHT"
   );
 }
 
@@ -301,6 +303,20 @@ function applyFrameChildren(container: Element, ctx: FrameContext): void {
     }
 
     renderEntity(child, ctx);
+    callFrameHook(child, ctx);
     applyFrame(child, ctx);
   }
+}
+
+// Imperative elements (the three.js model element, custom canvas surfaces)
+// implement wmApplyFrame(ctx) and render themselves. The walk calls the hook
+// after tweens are applied, with the sequence-local frame, so the element can
+// draw deterministically from ctx.frame alone.
+export interface FrameHookElement extends HTMLElement {
+  wmApplyFrame(ctx: FrameContext): void;
+}
+
+function callFrameHook(el: HTMLElement, ctx: FrameContext): void {
+  const hook = (el as Partial<FrameHookElement>).wmApplyFrame;
+  if (typeof hook === "function") hook.call(el, ctx);
 }

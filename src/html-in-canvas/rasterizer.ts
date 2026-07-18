@@ -821,6 +821,21 @@ function syncCloneTree(src: HTMLElement, dst: HTMLElement): void {
       skipRoot = s;
       continue;
     }
+    // Canvas pixels do not survive cloneNode; swap the clone for an image of
+    // the live canvas so WebGL and 2D surfaces render in whole-container
+    // rasters. (Layer compositing captures them directly and never gets here.)
+    if (s instanceof HTMLCanvasElement && s.width > 0 && s.height > 0) {
+      const img = document.createElement("img");
+      for (const attr of Array.from(d.attributes)) img.setAttribute(attr.name, attr.value);
+      try {
+        img.setAttribute("src", s.toDataURL());
+        d.replaceWith(img);
+      } catch {
+        // A tainted canvas cannot be read back; leave the blank clone.
+      }
+      skipRoot = s;
+      continue;
+    }
     // Freeze vertical metrics, flooring subpixel values so wrapped text lands
     // on the same lines after rasterization.
     for (const prop of VERTICAL_PROPS) {

@@ -25,6 +25,10 @@
     "./elements": {
       "types": "./dist/elements/index.d.ts",
       "import": "./dist/elements/index.js"
+    },
+    "./three": {
+      "types": "./dist/three/index.d.ts",
+      "import": "./dist/three/index.js"
     }
   },
   "files": [
@@ -32,7 +36,7 @@
     "src/html-in-canvas/CREDITS.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-decoders.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -50,14 +54,24 @@
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@types/three": "^0.185.1",
     "happy-dom": "^20.10.6",
     "playwright": "^1.61.1",
     "shiki": "^4.3.1",
+    "three": "^0.185.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"
   },
   "dependencies": {
     "mp4-muxer": "^5.2.2"
+  },
+  "peerDependencies": {
+    "three": ">=0.150.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
   }
 }

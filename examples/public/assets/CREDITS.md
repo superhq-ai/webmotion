@@ -25,3 +25,16 @@
 - `reel/*.png` cutouts are AI-generated fictional characters for this project.
 - `hero-orb.webp`, `light-ribbons.webp`, `aurora.webp`, `mesh.webp`, `horizon.webp`
   are AI-generated for this project.
+
+## Models
+
+- `fox.glb` - "Fox" from the
+  [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox),
+  base model by PixelMannen (CC0), rigging and animation by
+  [@tomkranis](https://sketchfab.com/tomkranis) via Sketchfab,
+  [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- `drop-score.m4a` - trimmed from "Bilderbergin" by Robbero,
+  [ccMixter](https://ccmixter.org/files/Robbero/66086), licensed under
+  [Creative Commons: By Attribution 3.0](https://creativecommons.org/licenses/by/3.0/).
+- `impact.m4a` - synthesized in-repo with ffmpeg (sine sweep plus filtered
+  noise); no external source.

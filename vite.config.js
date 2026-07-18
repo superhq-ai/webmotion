@@ -16,6 +16,7 @@ export default defineConfig({
         replacement: fromRoot("./dist/html-in-canvas/index.js"),
       },
       { find: /^@superhq\/webmotion\/elements$/, replacement: fromRoot("./dist/elements/index.js") },
+      { find: /^@superhq\/webmotion\/three$/, replacement: fromRoot("./dist/three/index.js") },
       { find: /^@superhq\/webmotion$/, replacement: fromRoot("./dist/index.js") },
     ],
   },

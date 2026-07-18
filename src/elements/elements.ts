@@ -8,8 +8,10 @@ import { expandTemplates } from "./template.js";
 
 // Base entity. Positions itself absolutely from x/y/width/height and exposes a
 // base opacity; animated transforms and opacity are layered on per frame by the
-// component system. Subclasses add their own static presentation.
-class WEntity extends HTMLElement {
+// component system. Subclasses add their own static presentation. Exported so
+// optional packages (the three.js entry) can build entities on the same box
+// model.
+export class WEntity extends HTMLElement {
   static get observedAttributes(): string[] {
     return ["x", "y", "width", "height", "opacity"];
   }

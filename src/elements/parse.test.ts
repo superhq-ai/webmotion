@@ -75,4 +75,13 @@ describe("resolveEasing", () => {
     expect(resolveEasing(undefined)).toBe(easings.linear);
     expect(resolveEasing("noSuchEasing")).toBe(easings.linear);
   });
+
+  it("parses css cubic-bezier strings, including overshoot", () => {
+    const ease = resolveEasing("cubic-bezier(0.2, 1.4, 0.3, 1)");
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+    // An overshoot curve exceeds 1 partway through.
+    expect(ease(0.5)).toBeGreaterThan(1);
+    expect(resolveEasing("cubic-bezier(bad)")).toBe(easings.linear);
+  });
 });

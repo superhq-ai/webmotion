@@ -68,6 +68,14 @@ export async function exportComposition(
     durationInFrames: target.durationInFrames,
   });
 
+  // Elements that load assets asynchronously (the three.js model element)
+  // expose a wmReady promise; the export must not start before every frame is
+  // renderable, or early frames would bake in missing content.
+  const pending = Array.from(target.stage.querySelectorAll<HTMLElement>("*"))
+    .map((el) => (el as { wmReady?: unknown }).wmReady)
+    .filter((p): p is Promise<void> => p instanceof Promise);
+  if (pending.length > 0) await Promise.all(pending);
+
   // Layer compositing: top-level entities rasterize once and are drawn with
   // per-frame transform and opacity at composite time, so tweens, fades, and
   // filter effects cost a canvas draw instead of a full re-rasterization.

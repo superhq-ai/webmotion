@@ -99,6 +99,8 @@ await runtime.renderFrame(30); // draws exactly frame 30, every time
 
 Prefer real DOM over canvas drawing? The `@superhq/webmotion/html-in-canvas` backend renders live HTML and rasterizes it per frame. It is named after, and tracks, the [WICG html-in-canvas proposal](https://github.com/WICG/html-in-canvas): today a foreignObject rasterizer stands in as the polyfill, and the native APIs take over when browsers ship them. See the [architecture notes](./docs/ARCHITECTURE.md) for that and everything else.
 
+Need 3D? Install `three` and import `@superhq/webmotion/three` to get `<w-model>`: an animated glTF entity whose clips run on the frame clock, composited with everything above and exported deterministically. See [THREE.md](./docs/THREE.md).
+
 ## Demos
 
 **Live: [superhq-ai.github.io/webmotion](https://superhq-ai.github.io/webmotion/)**

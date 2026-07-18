@@ -21,6 +21,21 @@ export interface CompositeLayerPlan {
   dirty: boolean;
   /** Raster resolution multiplier, above 1 for layers that zoom in. */
   supersample?: number;
+  /**
+   * Live layer: the node exposes wmLiveCanvas() (a WebGL surface or similar).
+   * Its pixels are captured per frame with createImageBitmap instead of DOM
+   * rasterization; transform and opacity still apply at composite time.
+   */
+  live?: boolean;
+}
+
+interface LiveCanvasElement extends HTMLElement {
+  wmLiveCanvas(): HTMLCanvasElement | null;
+}
+
+function liveCanvasOf(node: HTMLElement): HTMLCanvasElement | null {
+  const fn = (node as Partial<LiveCanvasElement>).wmLiveCanvas;
+  return typeof fn === "function" ? fn.call(node) : null;
 }
 
 export interface LayerFramePlan {
@@ -53,11 +68,14 @@ const LAYER_BLEED = 64;
 interface LayerSnapshotItem {
   layer: CompositeLayerPlan;
   snapshot: RasterSnapshot | null;
+  /** Pending pixel capture for live layers; resolved in rasterizeSnapshot. */
+  liveCapture?: Promise<ImageBitmap> | null;
 }
 
 interface LayerRasterItem {
   layer: CompositeLayerPlan;
   raster: RasterResult | null;
+  bitmap?: ImageBitmap | null;
 }
 
 type FrameSnapshotPayload =
@@ -155,6 +173,19 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
       if (plan) {
         const items: LayerSnapshotItem[] = [];
         for (const layer of plan.layers) {
+          if (layer.live) {
+            // Live layers (WebGL canvases) are captured, not rasterized. The
+            // bitmap copy happens at call time, so the capture belongs here,
+            // before the next frame mutates the canvas; the await happens in
+            // rasterizeSnapshot where captures overlap across frames.
+            const source = liveCanvasOf(layer.node);
+            items.push({
+              layer,
+              snapshot: null,
+              liveCapture: source && source.width > 0 ? createImageBitmap(source) : null,
+            });
+            continue;
+          }
           // Clean layers reuse their cached raster untouched: no clone, no
           // serialization, no style reads. This is where per-layer compositing
           // pays off; only content changes cost anything.
@@ -185,6 +216,9 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
       if (payload.mode === "layers") {
         const items = await Promise.all(
           payload.items.map(async (item): Promise<LayerRasterItem> => {
+            if (item.layer.live) {
+              return { layer: item.layer, raster: null, bitmap: (await item.liveCapture) ?? null };
+            }
             return {
               layer: item.layer,
               raster: item.snapshot ? await this.rasterizer.rasterizeSnapshot(item.snapshot) : null,
@@ -218,7 +252,6 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
       const g = globalThis as Record<string, unknown>;
       const debug = g["__WM_LAYER_DEBUG"] === true;
       for (const item of payload.items) {
-        if (item.raster) this.rasterizer.present(item.raster);
         if (debug) {
           const c = this.rasterizer.getCanvas(item.layer.node);
           ((g["__wmLayers"] ??= []) as unknown[]).push({
@@ -227,12 +260,22 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
             rect: item.layer.rect,
             opacity: item.layer.opacity,
             dirty: item.layer.dirty,
+            live: !!item.layer.live,
             hasRaster: !!item.raster,
-            hasSvg: !!(item.raster && (item.raster as { image: unknown }).image),
+            hasBitmap: !!item.bitmap,
             canvas: c ? c.width + "x" + c.height : "none",
           });
         }
-        this.compositeLayer(item.layer);
+        if (item.layer.live) {
+          if (item.bitmap) {
+            this.compositeLayer(item.layer, item.bitmap, 0);
+            item.bitmap.close();
+          }
+          continue;
+        }
+        if (item.raster) this.rasterizer.present(item.raster);
+        const canvas = this.rasterizer.getCanvas(item.layer.node);
+        if (canvas) this.compositeLayer(item.layer, canvas, LAYER_BLEED);
       }
       for (const node of payload.released) this.rasterizer.release(node);
       return;
@@ -241,16 +284,14 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
     this.outputCtx.drawImage(rasterized, 0, 0, this.width, this.height);
   }
 
-  // Draw one layer's cached raster with its compositor properties. The math
-  // mirrors css `translate(tx, ty) scale(s) rotate(r)` about the border-box
-  // center: p' = center + translation + S.R.(p - center).
-  private compositeLayer(layer: CompositeLayerPlan): void {
-    const canvas = this.rasterizer.getCanvas(layer.node);
-    if (!canvas) return;
+  // Draw one layer's pixels with its compositor properties. The math mirrors
+  // css `translate(tx, ty) scale(s) rotate(r)` about the border-box center:
+  // p' = center + translation + S.R.(p - center). `b` is the bleed baked into
+  // the source (0 for live captures).
+  private compositeLayer(layer: CompositeLayerPlan, canvas: CanvasImageSource, b: number): void {
     const opacity = Math.min(1, Math.max(0, layer.opacity));
     if (opacity === 0) return;
     const { rect, transform } = layer;
-    const b = LAYER_BLEED;
     const ctx = this.outputCtx;
     const drawW = rect.width + 2 * b;
     const drawH = rect.height + 2 * b;

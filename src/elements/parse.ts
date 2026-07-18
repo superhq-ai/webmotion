@@ -28,9 +28,22 @@ export function splitUnit(raw: string): { value: number; unit: string } {
   return { value: Number.parseFloat(m[1]), unit: (m[2] ?? "").trim() };
 }
 
-// Look up a named easing from the animation module, defaulting to linear.
+// Look up a named easing from the animation module, or build one from a css
+// style cubic-bezier(x1, y1, x2, y2) string (y values outside [0, 1] give
+// overshoot). Defaults to linear.
 export function resolveEasing(name: string | undefined): EasingFunction {
   if (!name) return easings.linear;
+  const bezier = /^cubic-bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)$/.exec(
+    name.trim(),
+  );
+  if (bezier) {
+    return easings.cubicBezier(
+      Number(bezier[1]),
+      Number(bezier[2]),
+      Number(bezier[3]),
+      Number(bezier[4]),
+    );
+  }
   const fn = (easings as Record<string, unknown>)[name];
   return typeof fn === "function" ? (fn as EasingFunction) : easings.linear;
 }

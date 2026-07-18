@@ -22,6 +22,7 @@ const INERT_TAGS = new Set([
   "W-FOR",
   "W-DATA",
   "W-IF",
+  "W-LIGHT",
 ]);
 
 export class StageLayerPlanner implements LayerPlanner {
@@ -161,6 +162,11 @@ export class StageLayerPlanner implements LayerPlanner {
     const maxScale = getMaxAnimatedScale(el);
     const supersample = Math.min(MAX_SUPERSAMPLE, Math.max(1, maxScale));
 
+    // Elements exposing a live canvas (the three.js model element) are
+    // captured per frame rather than DOM-rasterized.
+    const live =
+      typeof (el as { wmLiveCanvas?: unknown }).wmLiveCanvas === "function";
+
     return {
       node: el,
       rect: {
@@ -173,6 +179,7 @@ export class StageLayerPlanner implements LayerPlanner {
       opacity,
       dirty,
       ...(supersample > 1 ? { supersample } : {}),
+      ...(live ? { live } : {}),
     };
   }
 }
