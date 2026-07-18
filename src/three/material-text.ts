@@ -155,6 +155,13 @@ export class WMaterialText extends HTMLElement {
     this.canvas.width = resolution;
     this.canvas.height = Math.round(resolution * aspect);
     this.texture = new THREE.CanvasTexture(this.canvas);
+    // No runtime mip generation: dynamic-texture mipmapping is buggy on
+    // older embedded Chromium (OBS CEF 127 WebGPU corrupts the mip chain,
+    // sampling eats holes in the print at minification). Linear filtering
+    // of a high-resolution canvas looks correct everywhere and behaves the
+    // same on every backend.
+    this.texture.generateMipmaps = false;
+    this.texture.minFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     // glTF UV convention: do not flip; the draw code writes top-down.
     this.texture.flipY = false;
