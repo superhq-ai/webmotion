@@ -343,3 +343,13 @@ w-player.stage::part(bar) {
   margin: 0 6px 0 1px;
   vertical-align: -1px;
 }
+
+a.nav-item {
+  text-decoration: none;
+  color: inherit;
+}
+a.nav-item .nav-name::after {
+  content: " \2197";
+  color: var(--faint);
+  font-size: 11px;
+}

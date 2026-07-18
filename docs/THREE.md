@@ -53,6 +53,13 @@ import "@superhq/webmotion/three"; // registers <w-model>
 | `shadow` | contact-shadow opacity on an invisible floor at the model's feet | off |
 | `tone-mapping` | `none`, `linear`, `reinhard`, `cineon`, `aces`, `agx`, `neutral` | `none` |
 | `exposure` | tone-mapping exposure | `1` |
+| `camera` | `"x y z"` camera position | fits the model |
+| `look-at` | `"x y z"` camera target | model center |
+| `fov` | vertical field of view in degrees | `35` |
+| `background` | scene background color | transparent |
+
+With no `camera` attribute the camera frames the model's bounding sphere at
+load, so a model drops in without tuning.
 
 ## Lights
 
@@ -86,43 +93,92 @@ import { configureModelLoaders } from "@superhq/webmotion/three";
 configureModelLoaders({ dracoPath: "/decoders/draco/", ktx2Path: "/decoders/basis/" });
 ```
 
-## One context for everything
+## Shader effects
 
-All models share a single WebGL context: each element's scene renders into a
-hidden scratch surface and is blitted to that element's own 2D canvas in the
-same task. Twenty models cost one context, models loaded from the same url
-share geometry and texture memory, and GL context loss recovers centrally
-(every model re-renders on the restored context on its next frame).
-| `camera` | `"x y z"` camera position | fits the model |
-| `look-at` | `"x y z"` camera target | model center |
-| `fov` | vertical field of view in degrees | `35` |
-| `background` | scene background color | transparent |
+`<w-shader-fx>` puts an application-defined shader effect on a named material
+slot of the enclosing model. The framework ships no effects; it hosts them.
+Register one in JavaScript, then declare it and tween its `amount`:
 
-With no `camera` attribute the camera frames the model's bounding sphere at
-load, so a model drops in without tuning.
+```js
+import { registerShaderEffect } from "@superhq/webmotion/three";
+import { MeshStandardNodeMaterial } from "three/webgpu";
+import { uniform, uv, floor, fract, sin, dot, mix, output, smoothstep, vec2, vec4 } from "three/tsl";
+
+registerShaderEffect("dissolve", ({ material, mesh, accent }) => {
+  const nodeMat = new MeshStandardNodeMaterial();
+  nodeMat.copy(material);
+  const amount = uniform(0);
+  const accentColor = uniform(accent);
+  const cell = fract(sin(dot(floor(uv().mul(30)), vec2(12.9898, 78.233))).mul(43758.5453));
+  const lit = smoothstep(cell.sub(0.05), cell.add(0.05), amount);
+  nodeMat.outputNode = vec4(mix(output.rgb, accentColor, lit), output.a);
+  mesh.material = nodeMat;
+  return {
+    update(a, timeSeconds) { amount.value = a; },
+    dispose() { nodeMat.dispose(); },
+  };
+});
+```
+
+```html
+<w-model src="jersey.glb">
+  <w-shader-fx material="Front" effect="dissolve" accent="#4db8ff">
+    <w-animate property="amount" from="1" to="0" start="0" end="42"></w-animate>
+  </w-shader-fx>
+</w-model>
+```
+
+The factory receives `{ material, mesh, accent, el }`: the per-instance clone
+of the targeted slot, the mesh carrying it, the parsed `accent` color, and the
+declaring element for custom attributes. It returns `{ update, dispose? }`.
+`update(amount, timeSeconds)` runs per frame with the sampled `amount` tween
+and seconds derived from the frame clock, never a wall clock, so live playback
+and export produce the same pixels.
+
+Author the effect however three allows: TSL node materials (shown above,
+compiled to WGSL on WebGPU and GLSL on the fallback), a direct material
+mutation, or a full material swap. The host takes care of slot targeting by
+material name, one-clone-per-instance sharing with `<w-material-text>`, tween
+sampling, render-key invalidation while the effect is active, and calling
+`dispose` on teardown.
+
+## One renderer for everything
+
+All models share a single three `WebGPURenderer`: WGSL through WebGPU where
+the browser has it, the WebGL2 backend otherwise, the same node materials
+either way. Each element's scene renders into a hidden scratch surface and is
+blitted to that element's own 2D canvas when the async render resolves;
+passes are serialized so renderer-global state (viewport, clear color, tone
+mapping) never interleaves. Twenty models cost one device, models loaded from
+the same url share geometry and texture memory, and device loss recovers
+centrally (every model re-renders on the fresh device on its next frame).
 
 ## How export works
 
-During export the element is a live layer: the WebGL canvas is captured per
-frame with `createImageBitmap` and composited into the output, while
-transform and opacity tweens are applied at composite time by the layer
-compositor (see [ARCHITECTURE.md](./ARCHITECTURE.md)). A slide, fade, spin,
-or zoom of the model therefore costs one canvas draw, and the 3D scene only
-re-renders when its clip time actually changes.
+During export the element is a live layer: its canvas is captured per frame
+with `createImageBitmap` and composited into the output, while transform and
+opacity tweens are applied at composite time by the layer compositor (see
+[ARCHITECTURE.md](./ARCHITECTURE.md)). A slide, fade, spin, or zoom of the
+model therefore costs one canvas draw, and the 3D scene only re-renders when
+its clip time actually changes.
 
 Custom imperative elements can join the same machinery by implementing two
 methods: `wmApplyFrame(ctx)` (called by the frame walk with the
 sequence-local frame; draw deterministically from `ctx.frame`) and
 `wmLiveCanvas()` (return the canvas to capture). An element that loads assets
 asynchronously should also expose a `wmReady` promise; export waits for it.
+An element that renders asynchronously, as `<w-model>` does on WebGPU, can
+expose `wmAwaitFrame()` returning a promise for the in-flight render; export
+awaits it before capturing, so the canvas always holds the requested frame.
 
 ## Determinism note
 
 Clip time is a pure function of the frame, so renders are reproducible. One
-nuance: WebGL rasterization (anti-aliasing in particular) can vary at the
-least-significant-bit level between runs on the same machine. Exports with 3D
-layers are visually identical across runs (SSIM above 0.99999) but, unlike
-the DOM-only path, not guaranteed byte-identical.
+nuance: GPU rasterization (anti-aliasing in particular) can vary at the
+least-significant-bit level between runs on the same machine, and between the
+WebGPU and WebGL2 backends. Exports with 3D layers are visually identical
+across runs (SSIM above 0.99999) but, unlike the DOM-only path, not
+guaranteed byte-identical.
 
 ## Limitations
 

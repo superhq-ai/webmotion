@@ -1,6 +1,6 @@
 ---
 name: webmotion
-description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Includes 3D: glTF/GLB models with animation clips, turntable spins, and studio lighting via <w-model>. Use when the user wants motion graphics, title cards, launch/product videos, product turntables, kinetic typography, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas/3D animation exported to MP4.
+description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Includes 3D: glTF/GLB models with animation clips, turntable spins, studio lighting, runtime text on material slots, and app-defined TSL shader effects via <w-model>. Includes live mode: unbounded event-driven overlays (OBS browser sources, stream alerts, persistent widgets) via LiveStage. Use when the user wants motion graphics, title cards, launch/product videos, product turntables, kinetic typography, stream overlays, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas/3D animation exported to MP4.
 ---
 
 # WebMotion
@@ -78,6 +78,8 @@ Import once, then the scene is markup:
 | `<w-if>` | `when` (expression) | Static variant selection: stamps its children once at setup when truthy (`false`, `0`, `""`, `null`, empty arrays are falsy). No else, no comparison operators; compute booleans into the data. |
 | `<w-model>` | `src` (glTF/GLB url) `x` `y` `width` `height` `opacity` `animation` (clip name) `animation-from` `speed` `loop` `rotation` ("x y z" deg) `spin` (deg/sec around Y) `camera` `look-at` `fov` `lights` (preset) `environment` `environment-intensity` `shadow` (opacity) `tone-mapping` `exposure` `background` | 3D entity (requires the `/three` entry). Clips run on the frame clock; no camera attr auto-frames the model. DRACO, KTX2, and Meshopt compressed files decode out of the box. Full spec: docs/THREE.md. |
 | `<w-light>` | `type` (`ambient` `hemisphere` `directional` `point` `spot`) `color` `ground-color` `position` ("x y z") `intensity` `angle` `penumbra` `distance` `decay` | Child of `<w-model>`, usually with `lights="none"` on the model. Numeric properties (`intensity` `x` `y` `z` `angle` `penumbra` `distance`) tween via child `<w-animate>`. Inert. |
+| `<w-material-text>` | `material` (slot name) `text` `background` `color` `font` `image` (base art, alpha = silhouette) `logo` `logo-url` `resolution` `aspect` `flip` (`180`) `source` (data key for text) `bind-background` `bind-color` `bind-logo` (data keys for live restyling) | Child of `<w-model>`: draws text and an optional logo into a canvas that becomes the named material slot's texture. Injection-safe for untrusted strings (canvas, never markup); fits up to 3 lines, short lines render big. Full spec: docs/THREE.md. |
+| `<w-shader-fx>` | `material` (slot name) `effect` (registered name) `accent` (color) `amount` | Child of `<w-model>`: runs an application-registered shader effect on a material slot; tween `amount` via child `<w-animate>`. Register effects in JS with `registerShaderEffect(name, factory)` from the `/three` entry (TSL node materials or direct material mutation; the framework ships no effects). Full spec: docs/THREE.md. |
 
 All entities are absolutely positioned by `x`/`y`/`width`/`height` in composition pixels.
 
@@ -119,6 +121,30 @@ const blob = await comp.export({
 ```
 
 For a ready-made UI wrap the composition in `<w-player>` (see the elements table); for canvas runtimes, `PlaybackController` from the core package provides the same play/seek/volume surface and events.
+
+### Live mode (stream overlays)
+
+`@superhq/webmotion/live` renders unbounded, event-driven overlays (OBS
+browser sources, donation alerts, persistent widgets) instead of a fixed
+timeline. Props are registered templates; triggers expand them with runtime
+data via the same `{placeholder}` machinery:
+
+```js
+import { LiveStage } from "@superhq/webmotion/live";
+const stage = new LiveStage(container, { width: 1920, height: 1080 });
+stage.registerProp("alert", alertMarkup);        // or registerPropUrl(name, url)
+await stage.preload(["alert"], { alert: sampleData }); // warm shaders + textures
+stage.trigger("alert", { donor: "RILEY", amount: "5" }); // one-shot; unmounts at duration
+stage.trigger("widget", data);                   // props marked persistent stay
+stage.update("widget", data);                    // rebind in place, no remount
+stage.dismiss("widget");
+```
+
+One-shot retriggers coalesce at depth 1 (current instance finishes, latest
+pending data plays); `{ mode: "restart" }` replays immediately. Runtime data
+is treated as hostile: it lands through text nodes and canvas textures only,
+with length caps. Idle cost is zero (no mounted props, no rAF). A prop that
+throws unmounts to nothing; the stage survives. Design doc: docs/LIVE-RFC.md.
 
 ## Programmatic API (canvas or custom components)
 

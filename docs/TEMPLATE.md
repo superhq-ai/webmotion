@@ -75,7 +75,7 @@ Outside a `<w-for>`, braces are ordinary text.
 </w-for>
 ```
 
-`when` is the same expression language, judged by template truthiness: `false`, `0`, `""`, `null`, and empty arrays do not render; everything else does. Truthy stamps the children (once, like `<w-for>`); falsy stamps nothing. Combined with the `data` property, one scene renders many variants: localized cuts, plan-specific beats, per-customer exports.
+`when` is the same expression language, judged by template truthiness: `false`, `0`, `""`, `null`, and empty arrays do not render; everything else does. A name missing from the data entirely is also false, so variant flags can simply be omitted when they do not apply. Truthy stamps the children (once, like `<w-for>`); falsy stamps nothing. Combined with the `data` property, one scene renders many variants: localized cuts, plan-specific beats, per-customer exports.
 
 There is no `w-else` and no comparison or boolean operators in `when`. A condition that needs logic (`count > 3`, negation) is computed into the data as a boolean, in JS or in the JSON. Like everything in this layer, `<w-if>` is evaluated once at setup; it does not toggle.
 

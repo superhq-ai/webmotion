@@ -3,9 +3,25 @@
 // applications that never import "@superhq/webmotion/three" pay nothing for
 // it.
 import "../elements/index.js";
+import { registerInertTag } from "../elements/registry.js";
 import { defineModelElement } from "./model-element.js";
+import { defineMaterialTextElement } from "./material-text.js";
+import { defineShaderFxElement } from "./shader-fx.js";
+
+registerInertTag("W-LIGHT");
+registerInertTag("W-MATERIAL-TEXT");
+registerInertTag("W-SHADER-FX");
 
 export { WModel, clipTimeAt, defineModelElement } from "./model-element.js";
+export { WMaterialText, fitLines, defineMaterialTextElement } from "./material-text.js";
+export {
+  WShaderFx,
+  defineShaderFxElement,
+  registerShaderEffect,
+  type ShaderEffectContext,
+  type ShaderEffectInstance,
+  type ShaderEffectFactory,
+} from "./shader-fx.js";
 export { configureModelLoaders } from "./loaders.js";
 export { clearModelCache } from "./model-cache.js";
 export { buildPreset, resolveToneMapping, type PresetName } from "./lighting.js";
@@ -25,3 +41,5 @@ export function defineLightElement(): void {
 
 defineModelElement();
 defineLightElement();
+defineMaterialTextElement();
+defineShaderFxElement();

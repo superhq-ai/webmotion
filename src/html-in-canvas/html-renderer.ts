@@ -174,10 +174,14 @@ export class HtmlRenderer implements Renderer<HtmlRenderContext> {
         const items: LayerSnapshotItem[] = [];
         for (const layer of plan.layers) {
           if (layer.live) {
-            // Live layers (WebGL canvases) are captured, not rasterized. The
-            // bitmap copy happens at call time, so the capture belongs here,
-            // before the next frame mutates the canvas; the await happens in
+            // Live layers (GPU canvases) are captured, not rasterized. The
+            // frame must settle first: async renderers (WebGPU) resolve
+            // wmAwaitFrame once the pass has blitted into the canvas. The
+            // bitmap copy then happens at call time, before the next frame
+            // mutates the canvas; the await of the bitmap itself happens in
             // rasterizeSnapshot where captures overlap across frames.
+            const settle = (layer.node as { wmAwaitFrame?: () => Promise<void> }).wmAwaitFrame;
+            if (typeof settle === "function") await settle.call(layer.node);
             const source = liveCanvasOf(layer.node);
             items.push({
               layer,

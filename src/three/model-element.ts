@@ -36,6 +36,50 @@ export function clipTimeAt(
   return Math.min(t, opts.duration);
 }
 
+// Bounds for camera framing. Box3.setFromObject reads bind-pose geometry
+// boxes; on skinned meshes those interact badly with rigs that carry node
+// scale (a Blender-style 100x rig makes the box frame a phantom a hundred
+// times the visible character, which then renders as a speck). Rigid meshes
+// use their geometry boxes in world space; skinned meshes are bounded by
+// their bones' world positions, which trace the articulated character
+// regardless of how the rig encodes scale. Padded because flesh extends
+// past the last joint.
+function computeModelBox(root: THREE.Object3D): THREE.Box3 {
+  root.updateWorldMatrix(true, true);
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  const point = new THREE.Vector3();
+  const seenBones = new Set<THREE.Bone>();
+  let sawSkinned = false;
+
+  root.traverse((o) => {
+    if (o instanceof THREE.SkinnedMesh && o.skeleton) {
+      sawSkinned = true;
+      for (const bone of o.skeleton.bones) {
+        if (seenBones.has(bone)) continue;
+        seenBones.add(bone);
+        point.setFromMatrixPosition(bone.matrixWorld);
+        box.expandByPoint(point);
+      }
+    } else if (o instanceof THREE.Mesh) {
+      const geom = o.geometry as THREE.BufferGeometry;
+      if (!geom.boundingBox) geom.computeBoundingBox();
+      if (geom.boundingBox) {
+        tmp.copy(geom.boundingBox).applyMatrix4(o.matrixWorld);
+        box.union(tmp);
+      }
+    }
+  });
+
+  if (box.isEmpty()) return box.setFromObject(root);
+  if (sawSkinned) {
+    // Joints sit inside the surface; grow by a slice of the diagonal.
+    const pad = box.getSize(new THREE.Vector3()).length() * 0.06;
+    box.expandByScalar(pad);
+  }
+  return box;
+}
+
 function parseVec3(value: string | null): THREE.Vector3 | null {
   if (!value) return null;
   const parts = value.trim().split(/\s+/).map(Number);
@@ -62,11 +106,13 @@ export class WModel extends WEntity {
   private clipDuration = 0;
   private loadedSrc: string | null = null;
   private lastRenderKey = "";
+  private pendingRender: Promise<void> = Promise.resolve();
   private cssW = 300;
   private cssH = 300;
   private dpr = 1;
   private backgroundColor: THREE.Color | null = null;
   private declaredLights: DeclaredLight[] = [];
+  private fxEls: HTMLElement[] = [];
   private toneMapping: THREE.ToneMapping = THREE.NoToneMapping;
   private exposure = 1;
   private shadowOpacity = 0;
@@ -75,9 +121,11 @@ export class WModel extends WEntity {
     super.connectedCallback();
     sharedRenderer.acquire();
     if (!this.canvas) {
-      this.canvas = document.createElement("canvas");
+      // Adopt a canvas child if one exists (a cloned element carries its
+      // previous incarnation's canvas); setupScene resizes it.
+      this.canvas = this.querySelector(":scope > canvas") ?? document.createElement("canvas");
       this.canvas.style.cssText = "display:block;width:100%;height:100%;";
-      this.appendChild(this.canvas);
+      if (!this.canvas.parentElement) this.appendChild(this.canvas);
       this.ctx2d = this.canvas.getContext("2d");
     }
     this.load();
@@ -120,11 +168,16 @@ export class WModel extends WEntity {
     const spin = num(this.getAttribute("spin"), 0);
     const yDeg = rot.y + spin * (ctx.frame / ctx.fps);
 
-    // Declarative lights sample their tweens here; their state joins the
-    // render key so an animated light re-renders a static model correctly.
+    // Declarative lights and shader effects sample their tweens here; their
+    // state joins the render key so animation on them re-renders a static
+    // model correctly.
     let lightsKey = "";
     for (const decl of this.declaredLights) {
       lightsKey += applyLightFrame(decl, ctx.frame) + "|";
+    }
+    for (const fx of this.fxEls) {
+      const sample = (fx as { wmFxFrame?: (f: number, fps: number) => string }).wmFxFrame;
+      if (typeof sample === "function") lightsKey += sample.call(fx, ctx.frame, ctx.fps) + "|";
     }
 
     const key =
@@ -139,9 +192,17 @@ export class WModel extends WEntity {
     this.renderPass();
   }
 
+  /**
+   * Async settle for frame-exact consumers: the export loop awaits this so
+   * captures see the completed WebGPU render and blit.
+   */
+  wmAwaitFrame(): Promise<void> {
+    return this.pendingRender;
+  }
+
   private renderPass(): void {
     if (!this.scene || !this.camera || !this.ctx2d) return;
-    sharedRenderer.renderInto(this.scene, this.camera, this.ctx2d, {
+    this.pendingRender = sharedRenderer.renderInto(this.scene, this.camera, this.ctx2d, {
       width: this.cssW,
       height: this.cssH,
       dpr: this.dpr,
@@ -157,7 +218,9 @@ export class WModel extends WEntity {
     if (!src || src === this.loadedSrc || !this.canvas) return;
     this.loadedSrc = src;
 
-    this.wmReady = loadGLTF(new URL(src, document.baseURI).href)
+    this.wmReady = sharedRenderer
+      .ready()
+      .then(() => loadGLTF(new URL(src, document.baseURI).href))
       .then((gltf) => {
         if (this.loadedSrc !== src) return;
         this.setupScene(instantiate(gltf));
@@ -214,7 +277,7 @@ export class WModel extends WEntity {
 
     // Re-center the model inside a pivot so rotation and spin turn it about
     // its own center regardless of where the file's origin sits.
-    const box = new THREE.Box3().setFromObject(model.scene);
+    const box = computeModelBox(model.scene);
     const center = box.getCenter(new THREE.Vector3());
     const sphere = box.getBoundingSphere(new THREE.Sphere());
     this.pivot = new THREE.Group();
@@ -241,14 +304,33 @@ export class WModel extends WEntity {
 
     // Frame the model: fit the bounding sphere unless camera/look-at say
     // otherwise. Computed once at load, so it stays constant across frames.
+    // `fit` is the padding factor around the bounding sphere: 1.35 breathes,
+    // ~1.0 fills the box edge to edge for tight product shots.
     const fov = num(this.getAttribute("fov"), 35);
+    const fit = Math.max(0.5, num(this.getAttribute("fit"), 1.35));
     const aspect = this.cssW / this.cssH;
-    const distance = (sphere.radius * 1.35) / Math.tan((fov * Math.PI) / 360);
+    const distance = (sphere.radius * fit) / Math.tan((fov * Math.PI) / 360);
 
     this.camera = new THREE.PerspectiveCamera(fov, aspect, sphere.radius / 100, distance * 20);
     const camPos = parseVec3(this.getAttribute("camera"));
     this.camera.position.copy(camPos ?? new THREE.Vector3(0, sphere.radius * 0.15, distance));
     this.camera.lookAt(parseVec3(this.getAttribute("look-at")) ?? new THREE.Vector3(0, 0, 0));
+
+    // Material-text and shader-effect slots attach once the scene exists;
+    // they clone their target materials (sharing one clone per slot) and can
+    // invalidate the render key on data updates.
+    for (const el of Array.from(
+      this.querySelectorAll(":scope > w-material-text, :scope > w-shader-fx"),
+    )) {
+      const attach = (el as { wmAttach?: (root: THREE.Object3D, inv: () => void) => void })
+        .wmAttach;
+      if (typeof attach === "function") {
+        attach.call(el, model.scene, () => {
+          this.lastRenderKey = "";
+        });
+      }
+    }
+    this.fxEls = Array.from(this.querySelectorAll(":scope > w-shader-fx"));
 
     const clips = model.animations ?? [];
     const wanted = this.getAttribute("animation");

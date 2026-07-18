@@ -248,9 +248,10 @@ function expandIf(el: Element, scopes: Scope[]): void {
   let value: unknown;
   try {
     value = evaluate(when.trim(), scopes);
-  } catch (e) {
-    console.warn(`[webmotion] <w-if when="${when}">:`, (e as Error).message);
-    return;
+  } catch {
+    // A name that does not exist in the data is an ordinary false: props
+    // pass boolean flags per trigger and omit the ones that do not apply.
+    value = false;
   }
   if (isTruthy(value)) stampChildren(el, el, scopes);
 }
@@ -287,4 +288,33 @@ function collectDirectives(root: Element): Element[] {
 export function expandTemplates(root: Element, extra?: Record<string, unknown>): void {
   const scopes: Scope[] = [{ ...collectData(root), ...extra }];
   for (const el of collectDirectives(root)) expandDirective(el, scopes);
+}
+
+/**
+ * Substitute `{expr}` placeholders through a whole subtree against runtime
+ * data, not just inside stamped directive content. Used by the live runtime
+ * when a prop is triggered: values land in text nodes and attribute strings
+ * (never parsed as markup, so hostile data cannot inject elements).
+ * <w-data> subtrees (JSON braces) and <style>/<script> (CSS braces) are
+ * left alone.
+ */
+export function substituteData(root: Element, data: Record<string, unknown>): void {
+  const scopes: Scope[] = [{ ...collectData(root), ...data }];
+  const skip = new Set(["W-DATA", "STYLE", "SCRIPT"]);
+  const walk = (node: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? "";
+      if (text.includes("{")) node.textContent = substituteString(text, scopes);
+      return;
+    }
+    if (!(node instanceof Element)) return;
+    if (skip.has(node.tagName)) return;
+    for (const attr of Array.from(node.attributes)) {
+      if (attr.value.includes("{")) {
+        node.setAttribute(attr.name, substituteString(attr.value, scopes));
+      }
+    }
+    for (const child of Array.from(node.childNodes)) walk(child);
+  };
+  walk(root);
 }

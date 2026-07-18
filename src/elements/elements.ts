@@ -45,6 +45,12 @@ class WText extends WEntity {
     return [...WEntity.observedAttributes, "text", "font", "color", "align"];
   }
 
+  /** Live rebind: bind-text names the data key that feeds the text. */
+  wmBind(data: Record<string, unknown>): void {
+    const key = this.getAttribute("bind-text");
+    if (key && key in data) this.setAttribute("text", String(data[key]));
+  }
+
   protected override applyStatic(): void {
     super.applyStatic();
     // Text usually lives in child text nodes and renders as-is. The `text`

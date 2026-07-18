@@ -6,16 +6,24 @@ const nav = document.getElementById("demo-nav");
 const stage = document.getElementById("stage-mount");
 
 // Build the sidebar list. Order comes from demos/index.js; first is default.
+// Entries with an `href` are standalone pages and open in a new tab instead
+// of mounting in the player shell.
 for (const demo of demos) {
-  const item = document.createElement("button");
+  const item = document.createElement(demo.href ? "a" : "button");
   item.className = "nav-item";
   item.dataset.id = demo.id;
   item.innerHTML = `<span class="nav-name"></span><span class="nav-kind"></span>`;
   item.querySelector(".nav-name").textContent = demo.title;
   item.querySelector(".nav-kind").textContent = demo.kind ?? "";
-  item.addEventListener("click", () => {
-    location.hash = demo.id;
-  });
+  if (demo.href) {
+    item.href = demo.href;
+    item.target = "_blank";
+    item.rel = "noreferrer";
+  } else {
+    item.addEventListener("click", () => {
+      location.hash = demo.id;
+    });
+  }
   nav.appendChild(item);
 }
 
@@ -34,7 +42,9 @@ function select(id) {
 
 function fromHash() {
   const id = location.hash.replace(/^#/, "");
-  select(demoById.has(id) ? id : demos[0].id);
+  const hit = demoById.get(id);
+  // Standalone pages have no player mount; deep links fall back to default.
+  select(hit && !hit.href ? id : demos[0].id);
 }
 
 window.addEventListener("hashchange", fromHash);

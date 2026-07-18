@@ -53,3 +53,29 @@ describe("live canvas layers", () => {
     stage.remove();
   });
 });
+
+describe("fitLines", () => {
+  const measure = (t: string) => t.length * 60; // 60 wide per char at 100px
+
+  it("stacks lines with equal slots and fits width", async () => {
+    const { fitLines } = await import("./material-text.js");
+    const out = fitLines(["ADA", "23"], 512, 640, measure);
+    expect(out).toHaveLength(2);
+    // "23" is shorter, so it gets a larger width-fit, capped by slot height.
+    expect(out[1]!.fontSize).toBeGreaterThanOrEqual(out[0]!.fontSize);
+    expect(out[0]!.y).toBeLessThan(out[1]!.y);
+  });
+
+  it("caps line count and length", async () => {
+    const { fitLines } = await import("./material-text.js");
+    const out = fitLines(["a", "b", "c", "d"], 512, 512, measure);
+    expect(out).toHaveLength(3);
+    const long = fitLines(["x".repeat(300)], 512, 512, measure);
+    expect(long[0]!.text.length).toBeLessThanOrEqual(48);
+  });
+
+  it("handles empty input", async () => {
+    const { fitLines } = await import("./material-text.js");
+    expect(fitLines([], 512, 512, measure)).toEqual([]);
+  });
+});

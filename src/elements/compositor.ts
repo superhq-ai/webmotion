@@ -6,24 +6,12 @@
 // (captured by the registry's compositor mode instead of written to inline
 // styles) never re-rasterizes.
 import type { CompositeLayerPlan, LayerFramePlan, LayerPlanner } from "../html-in-canvas/index.js";
-import { getCompositorState, getMaxAnimatedScale } from "./registry.js";
+import { getCompositorState, getMaxAnimatedScale, isInertTag } from "./registry.js";
 
 // Extra raster resolution for layers that zoom in, so scaling the cached
 // raster up at composite time stays sharp. Capped: past 2x the memory cost
 // outgrows the visible gain at video resolutions.
 const MAX_SUPERSAMPLE = 2;
-
-// Behavior and template holders that never render; mirrors registry.isInert.
-const INERT_TAGS = new Set([
-  "W-ANIMATE",
-  "W-DEFS",
-  "W-ANIMATION",
-  "W-AUDIO",
-  "W-FOR",
-  "W-DATA",
-  "W-IF",
-  "W-LIGHT",
-]);
 
 export class StageLayerPlanner implements LayerPlanner {
   private observer: MutationObserver | null = null;
@@ -110,7 +98,7 @@ export class StageLayerPlanner implements LayerPlanner {
       }
       if (!(child instanceof HTMLElement)) continue;
       const tag = child.tagName;
-      if (INERT_TAGS.has(tag)) continue;
+      if (isInertTag(tag)) continue;
       if (tag === "W-SEQUENCE") {
         if (child.style.display === "none") continue;
         if (!this.collect(child, out)) return false;

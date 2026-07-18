@@ -29,7 +29,7 @@ function cdnBase(): string {
   return `https://cdn.jsdelivr.net/npm/three@0.${REVISION}.0/examples/jsm/libs/`;
 }
 
-export function createGLTFLoader(): GLTFLoader {
+export async function createGLTFLoader(): Promise<GLTFLoader> {
   const loader = new GLTFLoader();
 
   const draco = new DRACOLoader();
@@ -38,8 +38,15 @@ export function createGLTFLoader(): GLTFLoader {
 
   const ktx2 = new KTX2Loader();
   ktx2.setTranscoderPath(config.ktx2Path ?? cdnBase() + "basis/");
-  // Transcode target selection needs a live GL context to probe.
-  ktx2.detectSupport(sharedRenderer.get());
+  // Transcode target selection probes the backend; WebGPU probing is async.
+  const renderer = sharedRenderer.get();
+  await sharedRenderer.ready();
+  const probe = ktx2 as unknown as {
+    detectSupportAsync?: (r: unknown) => Promise<unknown>;
+    detectSupport: (r: unknown) => unknown;
+  };
+  if (typeof probe.detectSupportAsync === "function") await probe.detectSupportAsync(renderer);
+  else probe.detectSupport(renderer);
   loader.setKTX2Loader(ktx2);
 
   loader.setMeshoptDecoder(MeshoptDecoder);

@@ -166,19 +166,29 @@ function componentAttrs(el: HTMLElement): string[] {
 
 // Behavior, definition, audio, and template nodes: never rendered, never
 // walked as entities. <w-audio> tweens (gain) belong to the audio engine;
-// <w-for>/<w-data> subtrees are template content; <w-light> tweens are
-// sampled by the enclosing <w-model>.
+// <w-for>/<w-data> subtrees are template content. Optional packages register
+// their own inert tags (the three entry adds W-LIGHT, the live entry adds
+// W-PROP) so nothing outside this module edits a hardcoded list.
+const inertTags = new Set([
+  "W-ANIMATE",
+  "W-DEFS",
+  "W-ANIMATION",
+  "W-AUDIO",
+  "W-FOR",
+  "W-DATA",
+  "W-IF",
+]);
+
+export function registerInertTag(tagName: string): void {
+  inertTags.add(tagName.toUpperCase());
+}
+
+export function isInertTag(tagName: string): boolean {
+  return inertTags.has(tagName);
+}
+
 function isInert(tagName: string): boolean {
-  return (
-    tagName === "W-ANIMATE" ||
-    tagName === "W-DEFS" ||
-    tagName === "W-ANIMATION" ||
-    tagName === "W-AUDIO" ||
-    tagName === "W-FOR" ||
-    tagName === "W-DATA" ||
-    tagName === "W-IF" ||
-    tagName === "W-LIGHT"
-  );
+  return inertTags.has(tagName);
 }
 
 // Resolve a <w-animation name> for `el` by walking up the tree: at each

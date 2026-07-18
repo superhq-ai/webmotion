@@ -9,13 +9,13 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { createGLTFLoader } from "./loaders.js";
 
 const cache = new Map<string, Promise<GLTF>>();
-let loader: GLTFLoader | null = null;
+let loaderPromise: Promise<GLTFLoader> | null = null;
 
 export function loadGLTF(url: string): Promise<GLTF> {
   let hit = cache.get(url);
   if (!hit) {
-    if (!loader) loader = createGLTFLoader();
-    hit = loader.loadAsync(url);
+    if (!loaderPromise) loaderPromise = createGLTFLoader();
+    hit = loaderPromise.then((loader) => loader.loadAsync(url));
     cache.set(url, hit);
     hit.catch(() => {
       if (cache.get(url) === hit) cache.delete(url);
@@ -39,5 +39,5 @@ export function instantiate(gltf: GLTF): ModelInstance {
 /** Test hook: drop all parsed models. */
 export function clearModelCache(): void {
   cache.clear();
-  loader = null;
+  loaderPromise = null;
 }

@@ -28,6 +28,11 @@
 
 ## Models
 
+- `shoe.glb` - "MaterialsVariantsShoe" from the
+  [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/MaterialsVariantsShoe),
+  copyright 2021 Shopify, Inc.,
+  [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- `shoe-bg.png` is AI-generated for this project.
 - `fox.glb` - "Fox" from the
   [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox),
   base model by PixelMannen (CC0), rigging and animation by
