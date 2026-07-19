@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveStage } from "./live-stage.js";
+import { registerPropBehavior } from "../elements/behavior.js";
 import { ManualTicker } from "./ticker.js";
 import "../elements/index.js";
 
@@ -214,5 +215,55 @@ describe("runtime effects", () => {
     stage.applyEffect("bar", SLIDE, { target: "#bar", id: "spin", mode: "toggle" });
     stage.applyEffect("bar", SLIDE, { target: "#bar", id: "spin", mode: "toggle" });
     expect(stage.container.querySelectorAll("#bar w-animate").length).toBe(1);
+  });
+});
+
+describe("prop behaviors", () => {
+  it("mounts on the frame walk, samples amount, and disposes on expiry", () => {
+    const calls: Array<[number, number]> = [];
+    let disposed = 0;
+    registerPropBehavior("probe", ({ host }) => {
+      host.appendChild(document.createElement("canvas"));
+      return {
+        frame: (frame, _sec, amount) => calls.push([frame, amount]),
+        dispose: () => disposed++,
+      };
+    });
+
+    stage.trigger("bar", {});
+    ticker.advance(1000); // prop clock at frame 30
+    stage.applyEffect(
+      "bar",
+      `<w-el x="0" y="0" width="100" height="200">
+         <w-behavior name="probe">
+           <w-animate property="amount" from="0" to="1" start="0" end="30"></w-animate>
+         </w-behavior>
+       </w-el>`,
+      { frames: 60 },
+    );
+    ticker.advance(500); // frame 45: mid-ramp
+    expect(stage.container.querySelector("w-behavior canvas")).not.toBeNull();
+    const last = calls[calls.length - 1]!;
+    expect(last[0]).toBeCloseTo(45, 0);
+    expect(last[1]).toBeGreaterThan(0.3);
+    expect(last[1]).toBeLessThan(0.7);
+
+    ticker.advance(2000); // past the burst window
+    expect(disposed).toBe(1);
+    expect(stage.container.querySelector("w-behavior")).toBeNull();
+  });
+
+  it("a throwing behavior is dropped without harming the prop", () => {
+    registerPropBehavior("bomb", () => ({
+      frame: () => {
+        throw new Error("boom");
+      },
+    }));
+    stage.trigger("bar", {});
+    stage.applyEffect("bar", `<w-el x="0" y="0" width="10" height="10"><w-behavior name="bomb"></w-behavior></w-el>`, {
+      mode: "toggle",
+    });
+    ticker.advance(200);
+    expect(stage.active("bar")).toBe(true); // the prop survived
   });
 });

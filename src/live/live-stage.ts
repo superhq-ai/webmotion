@@ -362,8 +362,10 @@ export class LiveStage {
         const host = el.parentElement as { wmDropFx?: (el: HTMLElement) => void } | null;
         if (el.tagName === "W-SHADER-FX" && typeof host?.wmDropFx === "function") {
           host.wmDropFx(el);
+          el.remove();
+        } else {
+          this.unmountSubtree(el);
         }
-        el.remove();
       }
     }
   }

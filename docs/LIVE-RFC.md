@@ -123,6 +123,20 @@ and re-keys its render, and `w-shader-fx` snapshots its material slot
 before the factory runs, restoring it on release, so an effect always
 hands the mesh back exactly as it found it.
 
+## Behaviors
+
+`<w-behavior name="...">` is the slot where application code runs
+against the prop clock: the framework ships no behaviors, exactly as it
+ships no shader effects. `registerPropBehavior(name, factory)` (from
+`elements`) registers a factory that receives the element as its host
+and returns `{ frame?(frame, timeSeconds, amount), dispose?() }`. The
+element samples its `amount` tween per frame like `w-shader-fx`, so
+entrances and exits ride the prop timeline while the behavior owns its
+pixels (a GL canvas, particles, whatever fits). A behavior that throws
+is dropped and its host cleared; the prop and the stage survive. In the
+pack model this is the Tier-2 seam: signed behavior modules register
+names, templates and effect fragments reference them declaratively.
+
 ## Package layout
 
 - `@superhq/webmotion/live` (new): `LiveStage`, `RafTicker`, `w-prop`.

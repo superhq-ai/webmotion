@@ -27,3 +27,5 @@ export { parseProps, num, splitUnit, resolveEasing } from "./parse.js";
 // Auto register on import, the way A-Frame defines its elements on load.
 defineElements();
 definePlayer();
+export { registerPropBehavior, WBehavior } from "./behavior.js";
+export type { PropBehaviorContext, PropBehaviorFactory, PropBehaviorInstance } from "./behavior.js";

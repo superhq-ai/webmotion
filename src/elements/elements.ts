@@ -1,5 +1,6 @@
 import { num } from "./parse.js";
 import { applyFrame } from "./registry.js";
+import { WBehavior } from "./behavior.js";
 import { exportComposition, type ExportOptions } from "./export.js";
 import { collectAudioClips, type AudioClip } from "../audio/schedule.js";
 import { collectSections, type TimelineSection } from "./sections.js";
@@ -350,6 +351,7 @@ export function defineElements(): void {
     ["w-for", WFor],
     ["w-data", WData],
     ["w-if", WIf],
+    ["w-behavior", WBehavior],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) customElements.define(name, ctor);
