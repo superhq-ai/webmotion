@@ -115,6 +115,8 @@ export class WModel extends WEntity {
   private declaredLights: DeclaredLight[] = [];
   private fxEls: HTMLElement[] = [];
   private modelRoot: import("three").Object3D | null = null;
+  private slotMeshes = new Map<string, THREE.Mesh>();
+  private slotSlices = new Map<string, { y: number; x: number; z: number; hw: number }[]>();
   private toneMapping: THREE.ToneMapping = THREE.NoToneMapping;
   private exposure = 1;
   private shadowOpacity = 0;
@@ -221,6 +223,97 @@ export class WModel extends WEntity {
     this.fxEls.push(el);
     this.lastRenderKey = "";
     return true;
+  }
+
+  /**
+   * Project a material slot's geometry to viewport space: `samples`
+   * slices along the mesh's local Y, each with the slice center and
+   * half-width in CSS pixels, ordered bottom to top. Anchored effects
+   * (a flame hugging a blade, sparks off an edge) query this per frame,
+   * so the anchor follows spin, tweened rotation, and the mesh's own
+   * curve. Null until the scene exists or when no material matches.
+   */
+  wmSlotPolyline(slot: string, samples = 12): { x: number; y: number; r: number }[] | null {
+    if (!this.scene || !this.camera) return null;
+    let mesh: THREE.Mesh | null = this.slotMeshes.get(slot) ?? null;
+    if (!mesh) {
+      this.scene.traverse((node) => {
+        if (mesh || !(node as THREE.Mesh).isMesh) return;
+        const o = node as THREE.Mesh;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        if (mats.some((m) => m && m.name === slot)) mesh = o;
+      });
+      if (!mesh) return null;
+      this.slotMeshes.set(slot, mesh);
+    }
+
+    let slices = this.slotSlices.get(slot);
+    if (!slices || slices.length !== samples) {
+      const geom = (mesh as THREE.Mesh).geometry;
+      const pos = geom.getAttribute("position");
+      if (!pos) return null;
+      if (!geom.boundingBox) geom.computeBoundingBox();
+      const box = geom.boundingBox as THREE.Box3;
+      // Slice along the mesh's longest local extent: exporters bake
+      // arbitrary transforms, so "length" is whichever axis dominates.
+      const size = [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z];
+      const axis = size[0]! >= size[1]! && size[0]! >= size[2]! ? 0 : size[1]! >= size[2]! ? 1 : 2;
+      const lo = axis === 0 ? box.min.x : axis === 1 ? box.min.y : box.min.z;
+      const span = Math.max(1e-6, size[axis]!);
+      const read = (i: number, a: number) =>
+        a === 0 ? pos.getX(i) : a === 1 ? pos.getY(i) : pos.getZ(i);
+      const u = (axis + 1) % 3;
+      const w2 = (axis + 2) % 3;
+      const acc = Array.from({ length: samples }, () => ({
+        minU: Infinity, maxU: -Infinity, minW: Infinity, maxW: -Infinity,
+      }));
+      for (let i = 0; i < pos.count; i++) {
+        const along = read(i, axis);
+        const b = Math.min(samples - 1, Math.floor(((along - lo) / span) * samples));
+        const bucket = acc[b] as (typeof acc)[number];
+        const cu = read(i, u);
+        const cw = read(i, w2);
+        if (cu < bucket.minU) bucket.minU = cu;
+        if (cu > bucket.maxU) bucket.maxU = cu;
+        if (cw < bucket.minW) bucket.minW = cw;
+        if (cw > bucket.maxW) bucket.maxW = cw;
+      }
+      slices = acc.map((bucket, i) => {
+        const empty = bucket.minU === Infinity;
+        const coords = [0, 0, 0];
+        coords[axis] = lo + ((i + 0.5) / samples) * span;
+        coords[u] = empty ? 0 : (bucket.minU + bucket.maxU) / 2;
+        coords[w2] = empty ? 0 : (bucket.minW + bucket.maxW) / 2;
+        return {
+          x: coords[0]!,
+          y: coords[1]!,
+          z: coords[2]!,
+          hw: empty
+            ? 0
+            : Math.max(bucket.maxU - bucket.minU, bucket.maxW - bucket.minW) / 2,
+        };
+      });
+      this.slotSlices.set(slot, slices);
+    }
+
+    this.scene.updateMatrixWorld(true);
+    const rect = this.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const world = (mesh as THREE.Mesh).matrixWorld;
+    const v = new THREE.Vector3();
+    const edge = new THREE.Vector3();
+    return slices.map((slice) => {
+      v.set(slice.x, slice.y, slice.z).applyMatrix4(world).project(this.camera as THREE.Camera);
+      edge
+        .set(slice.x + slice.hw, slice.y, slice.z)
+        .applyMatrix4(world)
+        .project(this.camera as THREE.Camera);
+      const px = rect.left + (v.x * 0.5 + 0.5) * rect.width;
+      const py = rect.top + (1 - (v.y * 0.5 + 0.5)) * rect.height;
+      const ex = rect.left + (edge.x * 0.5 + 0.5) * rect.width;
+      const ey = rect.top + (1 - (edge.y * 0.5 + 0.5)) * rect.height;
+      return { x: px, y: py, r: Math.hypot(ex - px, ey - py) };
+    });
   }
 
   /** Release and forget a runtime-adopted effect; the material slot is

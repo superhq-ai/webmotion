@@ -186,3 +186,13 @@ guaranteed byte-identical.
 - Default decoder paths for DRACO/KTX2 fetch from a CDN on first use; fully
   offline setups must self-host via `configureModelLoaders`.
 - Contact shadow needs at least one directional light in the rig.
+
+## Slot tracking
+
+`WModel.wmSlotPolyline(materialName, samples)` projects a material
+slot's geometry to viewport space: slices along the mesh's dominant
+local axis (exporters bake arbitrary transforms, so length is measured,
+not assumed), each slice giving the center and half-width in CSS pixels.
+Anchored effects query it per frame, so a flame hugging a blade or
+sparks off an edge follow spin, tweened rotation, and the mesh's own
+curve without knowing any of them. Null until the scene exists.
