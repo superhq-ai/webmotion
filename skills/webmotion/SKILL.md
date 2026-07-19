@@ -199,6 +199,23 @@ See [references/recipes.md](references/recipes.md) for complete, launch-quality 
 
 Preview plays through a live `AudioContext` (frames pace off the audio clock); export mixes down sample-exact through an `OfflineAudioContext` and encodes AAC (Opus fallback) into the MP4. Sequences bound audio exactly like visuals.
 
+## Checking your work
+
+You cannot see the video you just wrote. Do not hand a scene over without looking at it:
+
+```bash
+npx webmotion lint     # what is mechanically wrong
+npx webmotion shoot    # PNGs of the key frames, into .webmotion/shots
+```
+
+Both find the scene themselves (`src/scene.js`, `scene.js`, or `index.html`) and both work on either authoring style. They need Playwright (`npm install --save-dev playwright`); it drives the user's installed Chrome.
+
+`lint` catches exactly the pitfalls below, mechanically: conflicting tweens, text overflowing its box, an entity that never enters the frame, a cross-origin or missing asset, a font stack that resolves to nothing, a labelled beat where nothing moves. Fix every error before saying you are done. It exits non-zero when it finds one.
+
+`shoot` prints a path per frame. **Read the images.** They are the only way to judge composition, spacing, and whether a beat reads at a glance. Narrow either tool while iterating: `--beat "Outro"` for lint, `--frames 120,135,150` for shoot.
+
+Both key their sampling off `label="..."` on top-level `<w-sequence>` beats, so label them: an unlabelled scene reviews badly. Full rule reference: docs/CLI.md.
+
 ## Pitfalls
 
 - Two tweens targeting the same property of the same element conflict across the whole timeline (clamped values still write; last one wins). For entrance + exit, put them on different nesting levels: wrapper `<w-el>` owns the exit, inner element owns the entrance. Opacity and transforms compose through nesting.

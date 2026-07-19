@@ -30,6 +30,7 @@ Composition ── Timeline (frame clock)
 | Audio timeline + WebAudio mixdown | `audio/*` | ✅ tested |
 | Template expansion (`<w-for>`, `<w-data>`) | `elements/template` | ✅ tested |
 | 3D models via three.js (`<w-model>`, optional) | `three/*` | ✅ tested (see [THREE.md](./THREE.md)) |
+| Scene inspection CLI (`shoot`, `lint`) | `cli/*` | ✅ tested (see [CLI.md](./CLI.md)) |
 
 The browser-only pieces (canvas capture → WebCodecs → mux) run behind the same `Renderer` interface the unit tests drive via a `NullRenderer`, so the frame logic is identical in Node and the browser.
 

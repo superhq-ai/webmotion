@@ -24,6 +24,27 @@ Save the file and the preview reloads instantly. You rarely need to touch `src/p
 
 The one rule that keeps preview and export pixel-identical: **everything visible is a pure function of the current frame.** Never read `Date.now()`, `Math.random()`, or wall-clock time. Derive every value from the frame index through `<w-animate>`.
 
+## Check it without scrubbing
+
+Two commands render the scene and tell you about it, which is faster than hunting for a bad frame by hand and works well when an AI agent is doing the editing:
+
+```bash
+npm install --save-dev playwright   # once; it drives your installed Chrome
+npx webmotion lint                  # what is mechanically wrong
+npx webmotion shoot                 # PNGs of the key frames, into .webmotion/shots
+```
+
+`lint` catches things that are easy to miss and expensive to ship: two tweens fighting over one property, text overflowing its box, an element that never makes it into the frame, a missing asset, a beat where nothing moves. `shoot` writes one image per key frame, picked from the `label="..."` beats in your scene, so put labels on your top-level `<w-sequence>` beats and you get a contact sheet of the cut for free.
+
+Narrow either one while you iterate:
+
+```bash
+npx webmotion lint --beat "Outro"
+npx webmotion shoot --frames 120,135,150
+```
+
+Full rule reference: [CLI.md](https://github.com/superhq-ai/webmotion/blob/main/docs/CLI.md).
+
 ## Export notes
 
 Preview works in any modern browser. **MP4 export needs a Chromium-based browser** (WebCodecs H.264 and `OffscreenCanvas`). The exported file downloads with the name set by `config.downloadName`.

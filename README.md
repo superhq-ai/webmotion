@@ -133,6 +133,45 @@ npx -y degit superhq-ai/webmotion/skills/webmotion ~/.claude/skills/webmotion
 
 Then ask for a video ("make me a 10 second launch film for X") and the agent knows the format.
 
+## Look at a scene without opening a browser
+
+An agent writing a video is working blind: it can author 240 frames of timing and never see a pixel. The `webmotion` command closes that loop.
+
+```bash
+npx webmotion shoot          # PNGs of the key frames, into .webmotion/shots
+npx webmotion lint           # what is mechanically wrong with the scene
+```
+
+Both take a scene entry and fall back to `src/scene.js`, `scene.js`, or `index.html` in the working directory. Either the starter's `config` + `scene` module or a plain HTML page holding a `<w-composition>` works.
+
+`shoot` picks its frames from the scene's own structure: the first frame, the last, and the start, middle, and end of every labelled `<w-sequence>`. Override with `--frames 0,45,120`.
+
+`lint` reports what a contact sheet is worst at showing: two tweens fighting over one property, text overflowing its box, an entity that never makes it into the frame, an asset that will export as a hole, a font stack that resolves to nothing, a labelled beat where nothing moves. It exits non-zero when it finds an error, so it works in CI as well as in a loop.
+
+Both drive a real browser through Playwright, using your installed Chrome when there is one:
+
+```bash
+npm install --save-dev playwright
+```
+
+Every rule, what it means, and how to fix it: [CLI.md](./docs/CLI.md).
+
+## Agent plugin
+
+The same thing, packaged as a plugin with commands: `/webmotion:create-video` writes a video from a brief and checks the frames, `/webmotion:review-scene` critiques an existing one, `/webmotion:edit-scene` makes a targeted change and verifies it.
+
+```bash
+# Claude Code
+claude plugin marketplace add superhq-ai/webmotion
+claude plugin install webmotion@webmotion
+
+# Codex
+codex plugin marketplace add superhq-ai/webmotion
+codex plugin add webmotion@webmotion
+```
+
+One package serves both: Codex reads the same `.claude-plugin/plugin.json`.
+
 ## Development
 
 ```bash
