@@ -64,8 +64,9 @@ export interface EffectOptions {
   frames?: number;
   /** Values substituted into the fragment's {placeholders}. */
   params?: Record<string, unknown>;
-  /** Selector for the element the fragment mounts on (default "w-model",
-   *  falling back to the prop root). */
+  /** Selector for the element non-shader roots mount on (default: the
+   *  prop root). Shader-fx roots always wire to the prop's first
+   *  w-model regardless. */
   target?: string;
 }
 
@@ -314,18 +315,25 @@ export class LiveStage {
       tween.setAttribute("end", String(to + startFrame));
     }
 
-    const target =
-      instance.root.querySelector<HTMLElement>(options.target ?? "w-model") ?? instance.root;
+    const target = options.target
+      ? (instance.root.querySelector<HTMLElement>(options.target) ?? instance.root)
+      : instance.root;
+    const model = target.tagName === "W-MODEL"
+      ? target
+      : instance.root.querySelector<HTMLElement>("w-model");
     const mounted: HTMLElement[] = [];
     for (const el of Array.from(holder.children)) {
       if (!(el instanceof HTMLElement)) continue;
-      target.appendChild(el);
       if (el.tagName === "W-SHADER-FX") {
-        const adopt = (target as { wmAdoptFx?: (el: HTMLElement) => boolean }).wmAdoptFx;
-        if (typeof adopt !== "function" || !adopt.call(target, el)) {
+        const adopt = (model as { wmAdoptFx?: (el: HTMLElement) => boolean } | null)?.wmAdoptFx;
+        if (!model || typeof adopt !== "function") continue;
+        model.appendChild(el);
+        if (!adopt.call(model, el)) {
           el.remove();
           continue;
         }
+      } else {
+        target.appendChild(el);
       }
       mounted.push(el);
     }

@@ -101,9 +101,11 @@ the framework runs. The framework ships no effects.
 ## Runtime effects
 
 A mounted prop can take effect fragments while it runs:
-`applyEffect(name, fragment, options)` mounts `w-shader-fx` and
-`w-animate` roots onto a target inside the instance (default: its first
-`w-model`), substitutes `options.params` through the same injection-safe
+`applyEffect(name, fragment, options)` mounts fragment roots onto the
+running instance: `w-shader-fx` roots wire to the prop's first
+`w-model`, everything else (positioned `w-el` overlays, `w-animate`
+roots) mounts on `options.target` (default: the prop root). It
+substitutes `options.params` through the same injection-safe
 path trigger data takes, and returns a handle. Tween frames in a
 fragment are authored relative to the effect's own start; the stage
 offsets them onto the prop's clock at apply, so a fragment is one
