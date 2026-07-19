@@ -18,6 +18,15 @@ const BAR = `
   <w-el id="bar" x="0" y="0" width="400" height="40"></w-el>
 </w-prop>`;
 
+// A persistent prop placed by data: the storefront shape. Updates must
+// move it in place, never remount it.
+const STAND = `
+<w-prop persistent fps="30" width="1920" height="1080">
+  <w-el id="stand" x="{x}" y="{y}" width="340" height="500">
+    <w-text id="team" x="0" y="452" width="340" text="{team}"></w-text>
+  </w-el>
+</w-prop>`;
+
 let ticker: ManualTicker;
 let stage: LiveStage;
 let errors: string[];
@@ -28,6 +37,7 @@ beforeEach(() => {
   stage = new LiveStage({ ticker, onPropError: (name) => errors.push(name) });
   stage.registerProp("shot", SHOT);
   stage.registerProp("bar", BAR);
+  stage.registerProp("stand", STAND);
 });
 
 afterEach(() => {
@@ -79,6 +89,23 @@ describe("LiveStage lifecycle", () => {
     expect(stage.container.querySelector("#donor")?.textContent).toContain("third");
     ticker.advance(1100);
     expect(stage.active("shot")).toBe(false);
+  });
+
+  it("update re-resolves attribute placeholders on the mounted element", () => {
+    stage.trigger("stand", { x: 1500, y: 280, team: "TEAM A" });
+    const el = stage.container.querySelector<HTMLElement>("#stand");
+    expect(el?.getAttribute("x")).toBe("1500");
+    expect(stage.container.querySelector("#team")?.getAttribute("text")).toBe("TEAM A");
+
+    ticker.advance(200);
+    stage.trigger("stand", { x: 960, y: 140, team: "TEAM B" });
+
+    // Same node: the prop moved and re-labeled without remounting.
+    expect(stage.container.querySelector<HTMLElement>("#stand")).toBe(el);
+    expect(el?.getAttribute("x")).toBe("960");
+    expect(el?.getAttribute("y")).toBe("140");
+    expect(el?.style.left).toBe("960px");
+    expect(stage.container.querySelector("#team")?.getAttribute("text")).toBe("TEAM B");
   });
 
   it("restarts immediately in restart mode", () => {

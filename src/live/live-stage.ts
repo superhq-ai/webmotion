@@ -5,7 +5,7 @@
 // canvas, transparent by construction. When nothing is mounted the ticker has
 // no subscriber and the stage costs nothing.
 import { applyFrame, type FrameContext } from "../elements/registry.js";
-import { expandTemplates, substituteData } from "../elements/template.js";
+import { expandTemplates, resubstituteAttrs, substituteData } from "../elements/template.js";
 import { num } from "../elements/parse.js";
 import { collectAudioClips } from "../audio/schedule.js";
 import { loadClipBuffers, scheduleClips, type ScheduledAudio } from "../audio/engine.js";
@@ -239,11 +239,20 @@ export class LiveStage {
     this.mount(template, data);
   }
 
-  /** Refresh a mounted persistent prop's data without remounting. */
+  /** Refresh a mounted persistent prop's data without remounting: attribute
+   *  placeholders re-resolve in place (position, bound colors), then
+   *  bind-text elements rebind. Entrance animations do not replay, which is
+   *  what makes live position changes smooth instead of a remount storm. */
   update(name: string, data: Record<string, unknown>): void {
     const instance = this.instances.get(name);
     if (!instance) return;
     Object.assign(instance.data, data);
+    try {
+      resubstituteAttrs(instance.root, instance.data);
+    } catch (e) {
+      this.fail(name, e);
+      return;
+    }
     const all = [instance.root, ...instance.root.querySelectorAll<HTMLElement>("*")];
     for (const el of all) {
       const bind = (el as Partial<BindableElement>).wmBind;

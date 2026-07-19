@@ -298,6 +298,12 @@ export function expandTemplates(root: Element, extra?: Record<string, unknown>):
  * <w-data> subtrees (JSON braces) and <style>/<script> (CSS braces) are
  * left alone.
  */
+/** An element that remembers its raw placeholder attributes, so a live
+ *  update can re-resolve them against fresh data. */
+export interface TemplatedElement extends Element {
+  wmAttrTemplates?: Record<string, string>;
+}
+
 export function substituteData(root: Element, data: Record<string, unknown>): void {
   const scopes: Scope[] = [{ ...collectData(root), ...data }];
   const skip = new Set(["W-DATA", "STYLE", "SCRIPT"]);
@@ -311,7 +317,29 @@ export function substituteData(root: Element, data: Record<string, unknown>): vo
     if (skip.has(node.tagName)) return;
     for (const attr of Array.from(node.attributes)) {
       if (attr.value.includes("{")) {
+        // Remember the raw form: resubstituteAttrs re-evaluates it when a
+        // running prop's data changes (LiveStage.update).
+        ((node as TemplatedElement).wmAttrTemplates ??= {})[attr.name] = attr.value;
         node.setAttribute(attr.name, substituteString(attr.value, scopes));
+      }
+    }
+    for (const child of Array.from(node.childNodes)) walk(child);
+  };
+  walk(root);
+}
+
+/** Re-resolve every recorded placeholder attribute under `root` against
+ *  fresh data. Text nodes and one-shot expansions are untouched; this is
+ *  the live-update path, where attributes are the moving parts (position,
+ *  bound text attrs, colors). */
+export function resubstituteAttrs(root: Element, data: Record<string, unknown>): void {
+  const scopes: Scope[] = [{ ...collectData(root), ...data }];
+  const walk = (node: Node): void => {
+    if (!(node instanceof Element)) return;
+    const templates = (node as TemplatedElement).wmAttrTemplates;
+    if (templates) {
+      for (const [name, raw] of Object.entries(templates)) {
+        node.setAttribute(name, substituteString(raw, scopes));
       }
     }
     for (const child of Array.from(node.childNodes)) walk(child);
