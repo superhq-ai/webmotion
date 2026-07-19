@@ -53,6 +53,7 @@ export function registerShaderEffect(name: string, factory: ShaderEffectFactory)
 export class WShaderFx extends HTMLElement {
   private instance: ShaderEffectInstance | null = null;
   private baseAmount = 0;
+  private restoreMaterial: (() => void) | null = null;
 
   connectedCallback(): void {
     this.style.display = "none";
@@ -102,6 +103,16 @@ export class WShaderFx extends HTMLElement {
     }
 
     this.baseAmount = num(this.getAttribute("amount"), 0);
+    // Snapshot the slot before the factory runs: factories may swap the
+    // mesh's material entirely (node materials), and a runtime-applied
+    // effect must hand the slot back exactly as it found it on release.
+    const snapshotMesh = mesh as THREE.Mesh;
+    const snapshot = Array.isArray(snapshotMesh.material)
+      ? [...snapshotMesh.material]
+      : snapshotMesh.material;
+    this.restoreMaterial = () => {
+      snapshotMesh.material = Array.isArray(snapshot) ? [...snapshot] : snapshot;
+    };
     this.instance = factory({
       material,
       mesh,
@@ -129,6 +140,8 @@ export class WShaderFx extends HTMLElement {
   wmRelease(): void {
     this.instance?.dispose?.();
     this.instance = null;
+    this.restoreMaterial?.();
+    this.restoreMaterial = null;
   }
 }
 

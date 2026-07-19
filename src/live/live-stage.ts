@@ -45,6 +45,28 @@ interface Instance {
   startMs: number;
   data: Record<string, unknown>;
   audio: ScheduledAudio | null;
+  /** Runtime-applied effects, keyed by handle. */
+  effects: Map<string, RunningEffect>;
+}
+
+interface RunningEffect {
+  els: HTMLElement[];
+  /** Prop frame past which a burst effect unmounts; Infinity for toggles. */
+  endFrame: number;
+}
+
+export interface EffectOptions {
+  /** Handle for clearEffect; generated when omitted. */
+  id?: string;
+  /** "burst" runs for `frames` then unmounts; "toggle" stays until cleared. */
+  mode?: "burst" | "toggle";
+  /** Burst length in prop frames (default 300). */
+  frames?: number;
+  /** Values substituted into the fragment's {placeholders}. */
+  params?: Record<string, unknown>;
+  /** Selector for the element the fragment mounts on (default "w-model",
+   *  falling back to the prop root). */
+  target?: string;
 }
 
 interface BindableElement extends HTMLElement {
@@ -97,6 +119,7 @@ export class LiveStage {
   private buffers = new Map<string, AudioBuffer>();
   private unsubscribe: (() => void) | null = null;
   private disposed = false;
+  private effectSeq = 0;
   private resizeObserver: ResizeObserver | null = null;
 
   constructor(options: LiveStageOptions = {}) {
@@ -267,6 +290,76 @@ export class LiveStage {
     }
   }
 
+  /**
+   * Mount an effect fragment onto a running prop: w-shader-fx roots wire
+   * into the target model's live scene, w-animate roots join its tween
+   * sampling. Tween frames in the fragment are authored relative to the
+   * effect's own start; they are offset onto the prop's clock at apply.
+   * Returns a handle for clearEffect, or null when the prop is not
+   * mounted or the fragment has nothing to mount.
+   */
+  applyEffect(name: string, fragment: string, options: EffectOptions = {}): string | null {
+    const instance = this.instances.get(name);
+    if (!instance) return null;
+    const holder = document.createElement("div");
+    holder.innerHTML = fragment;
+    substituteData(holder, sanitizeData(options.params ?? {}));
+
+    const startFrame =
+      ((this.ticker.now() - instance.startMs) / 1000) * instance.template.fps;
+    for (const tween of Array.from(holder.querySelectorAll("w-animate"))) {
+      const from = num(tween.getAttribute("start"), 0);
+      const to = num(tween.getAttribute("end"), 0);
+      tween.setAttribute("start", String(from + startFrame));
+      tween.setAttribute("end", String(to + startFrame));
+    }
+
+    const target =
+      instance.root.querySelector<HTMLElement>(options.target ?? "w-model") ?? instance.root;
+    const mounted: HTMLElement[] = [];
+    for (const el of Array.from(holder.children)) {
+      if (!(el instanceof HTMLElement)) continue;
+      target.appendChild(el);
+      if (el.tagName === "W-SHADER-FX") {
+        const adopt = (target as { wmAdoptFx?: (el: HTMLElement) => boolean }).wmAdoptFx;
+        if (typeof adopt !== "function" || !adopt.call(target, el)) {
+          el.remove();
+          continue;
+        }
+      }
+      mounted.push(el);
+    }
+    if (mounted.length === 0) return null;
+
+    const id = options.id ?? `fx-${++this.effectSeq}`;
+    this.clearEffect(name, id); // a re-applied handle replaces its run
+    const frames = options.frames ?? 300;
+    instance.effects.set(id, {
+      els: mounted,
+      endFrame: (options.mode ?? "burst") === "burst" ? startFrame + frames : Infinity,
+    });
+    return id;
+  }
+
+  /** Unmount a runtime effect by handle, or every effect on the prop. */
+  clearEffect(name: string, id?: string): void {
+    const instance = this.instances.get(name);
+    if (!instance) return;
+    const targets = id ? [id] : [...instance.effects.keys()];
+    for (const key of targets) {
+      const effect = instance.effects.get(key);
+      if (!effect) continue;
+      instance.effects.delete(key);
+      for (const el of effect.els) {
+        const host = el.parentElement as { wmDropFx?: (el: HTMLElement) => void } | null;
+        if (el.tagName === "W-SHADER-FX" && typeof host?.wmDropFx === "function") {
+          host.wmDropFx(el);
+        }
+        el.remove();
+      }
+    }
+  }
+
   /** True while the named prop (or any prop) is mounted. */
   active(name?: string): boolean {
     return name ? this.instances.has(name) : this.instances.size > 0;
@@ -306,6 +399,7 @@ export class LiveStage {
       startMs: this.ticker.now(),
       data: { ...data },
       audio: null,
+      effects: new Map(),
     };
     this.instances.set(template.name, instance);
     this.startAudio(instance);
@@ -333,6 +427,10 @@ export class LiveStage {
   private applyInstanceFrame(instance: Instance, nowMs: number): void {
     const { template } = instance;
     const frame = ((nowMs - instance.startMs) / 1000) * template.fps;
+
+    for (const [id, effect] of instance.effects) {
+      if (frame >= effect.endFrame) this.clearEffect(template.name, id);
+    }
 
     if (!template.persistent && template.duration > 0 && frame >= template.duration) {
       const name = template.name;

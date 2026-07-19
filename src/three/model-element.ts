@@ -114,6 +114,7 @@ export class WModel extends WEntity {
   private backgroundColor: THREE.Color | null = null;
   private declaredLights: DeclaredLight[] = [];
   private fxEls: HTMLElement[] = [];
+  private modelRoot: import("three").Object3D | null = null;
   private toneMapping: THREE.ToneMapping = THREE.NoToneMapping;
   private exposure = 1;
   private shadowOpacity = 0;
@@ -201,6 +202,40 @@ export class WModel extends WEntity {
     const toRad = Math.PI / 180;
     this.pivot.rotation.set(xDeg * toRad, yDeg * toRad, zDeg * toRad);
     this.renderPass();
+  }
+
+  /**
+   * Adopt a shader-fx element appended after load (a runtime effect): wire
+   * it to the live scene and include it in per-frame sampling. Elements
+   * appended before load are picked up by the load path instead. Returns
+   * whether the adoption took.
+   */
+  wmAdoptFx(el: HTMLElement): boolean {
+    if (!this.modelRoot) return this.contains(el);
+    const attach = (el as { wmAttach?: (root: import("three").Object3D, inv: () => void) => void })
+      .wmAttach;
+    if (typeof attach !== "function") return false;
+    attach.call(el, this.modelRoot, () => {
+      this.lastRenderKey = "";
+    });
+    this.fxEls.push(el);
+    this.lastRenderKey = "";
+    return true;
+  }
+
+  /** Release and forget a runtime-adopted effect; the material slot is
+   *  restored by the element's own release. */
+  wmDropFx(el: HTMLElement): void {
+    const release = (el as { wmRelease?: () => void }).wmRelease;
+    if (typeof release === "function") {
+      try {
+        release.call(el);
+      } catch {
+        // Effect teardown must never take the model down.
+      }
+    }
+    this.fxEls = this.fxEls.filter((fx) => fx !== el);
+    this.lastRenderKey = "";
   }
 
   /**
@@ -342,6 +377,7 @@ export class WModel extends WEntity {
       }
     }
     this.fxEls = Array.from(this.querySelectorAll(":scope > w-shader-fx"));
+    this.modelRoot = model.scene;
 
     const clips = model.animations ?? [];
     const wanted = this.getAttribute("animation");

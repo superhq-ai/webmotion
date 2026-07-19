@@ -160,3 +160,59 @@ describe("LiveStage lifecycle", () => {
     warn.mockRestore();
   });
 });
+
+describe("runtime effects", () => {
+  const SLIDE = `
+    <w-animate property="x" from="0" to="100" start="0" end="30"></w-animate>`;
+
+  it("mounts a fragment on the running prop and offsets its tweens", () => {
+    stage.trigger("bar", {});
+    ticker.advance(1000); // prop clock at frame 30
+    const id = stage.applyEffect("bar", SLIDE, { target: "#bar", frames: 60 });
+    expect(id).not.toBeNull();
+    const tween = stage.container.querySelector("#bar w-animate");
+    expect(parseFloat(tween?.getAttribute("start") ?? "")).toBeCloseTo(30, 0);
+    expect(parseFloat(tween?.getAttribute("end") ?? "")).toBeCloseTo(60, 0);
+
+    ticker.advance(500); // frame 45: mid-tween
+    const el = stage.container.querySelector<HTMLElement>("#bar");
+    const mid = /translate\(([\d.]+)px/.exec(el?.style.transform ?? "")?.[1];
+    expect(parseFloat(mid ?? "0")).toBeGreaterThan(10);
+  });
+
+  it("burst effects unmount at their end frame", () => {
+    stage.trigger("bar", {});
+    stage.applyEffect("bar", SLIDE, { target: "#bar", frames: 30 });
+    ticker.advance(500);
+    expect(stage.container.querySelector("#bar w-animate")).not.toBeNull();
+    ticker.advance(700);
+    expect(stage.container.querySelector("#bar w-animate")).toBeNull();
+  });
+
+  it("toggle effects stay until cleared by handle", () => {
+    stage.trigger("bar", {});
+    const id = stage.applyEffect("bar", SLIDE, { target: "#bar", mode: "toggle" });
+    ticker.advance(5000);
+    expect(stage.container.querySelector("#bar w-animate")).not.toBeNull();
+    stage.clearEffect("bar", id!);
+    expect(stage.container.querySelector("#bar w-animate")).toBeNull();
+  });
+
+  it("substitutes params and refuses unmounted props", () => {
+    expect(stage.applyEffect("bar", SLIDE)).toBeNull(); // not mounted
+    stage.trigger("bar", {});
+    stage.applyEffect("bar", `<w-animate property="x" from="0" to="{reach}" start="0" end="10"></w-animate>`, {
+      target: "#bar",
+      params: { reach: 250 },
+    });
+    const tween = stage.container.querySelector("#bar w-animate");
+    expect(tween?.getAttribute("to")).toBe("250");
+  });
+
+  it("re-applying a handle replaces the previous run", () => {
+    stage.trigger("bar", {});
+    stage.applyEffect("bar", SLIDE, { target: "#bar", id: "spin", mode: "toggle" });
+    stage.applyEffect("bar", SLIDE, { target: "#bar", id: "spin", mode: "toggle" });
+    expect(stage.container.querySelectorAll("#bar w-animate").length).toBe(1);
+  });
+});
