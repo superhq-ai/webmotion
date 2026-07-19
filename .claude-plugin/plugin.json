@@ -1,0 +1,21 @@
+{
+  "name": "webmotion",
+  "version": "0.11.0",
+  "description": "Author deterministic, browser-rendered videos with WebMotion, with a sighted review loop over the frames.",
+  "author": {
+    "name": "SuperHQ",
+    "url": "https://github.com/superhq-ai"
+  },
+  "homepage": "https://github.com/superhq-ai/webmotion",
+  "repository": "https://github.com/superhq-ai/webmotion",
+  "license": "MIT",
+  "keywords": [
+    "video",
+    "motion-graphics",
+    "webcodecs",
+    "animation",
+    "mp4"
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/"
+}

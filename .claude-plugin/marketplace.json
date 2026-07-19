@@ -1,0 +1,20 @@
+{
+  "name": "webmotion",
+  "owner": {
+    "name": "SuperHQ",
+    "url": "https://github.com/superhq-ai"
+  },
+  "metadata": {
+    "description": "Browser-native, deterministic video composition.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "webmotion",
+      "source": "./",
+      "description": "Write videos as <w-*> markup, then review the rendered frames without leaving the terminal.",
+      "category": "content",
+      "keywords": ["video", "motion-graphics", "animation"]
+    }
+  ]
+}
