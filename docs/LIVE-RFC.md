@@ -98,6 +98,29 @@ compile to WGSL on WebGPU and GLSL on the WebGL2 fallback; the shared
 renderer is three's `WebGPURenderer`, so node materials work everywhere
 the framework runs. The framework ships no effects.
 
+## Runtime effects
+
+A mounted prop can take effect fragments while it runs:
+`applyEffect(name, fragment, options)` mounts `w-shader-fx` and
+`w-animate` roots onto a target inside the instance (default: its first
+`w-model`), substitutes `options.params` through the same injection-safe
+path trigger data takes, and returns a handle. Tween frames in a
+fragment are authored relative to the effect's own start; the stage
+offsets them onto the prop's clock at apply, so a fragment is one
+artifact regardless of when it fires.
+
+- `mode: "burst"` (default) unmounts the effect after `frames`;
+  `mode: "toggle"` holds until `clearEffect(name, handle)`.
+- Re-applying an explicit `id` replaces that run instead of stacking.
+- `clearEffect(name)` with no handle clears every effect on the prop;
+  teardown of the prop releases effects with everything else.
+
+Two contracts make this safe on a long-lived stage: `w-model` adopts
+late-added `w-shader-fx` into its live scene (`wmAdoptFx`/`wmDropFx`)
+and re-keys its render, and `w-shader-fx` snapshots its material slot
+before the factory runs, restoring it on release, so an effect always
+hands the mesh back exactly as it found it.
+
 ## Package layout
 
 - `@superhq/webmotion/live` (new): `LiveStage`, `RafTicker`, `w-prop`.
