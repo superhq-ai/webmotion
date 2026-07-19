@@ -1,6 +1,6 @@
 {
   "name": "webmotion",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "Author deterministic, browser-rendered videos with WebMotion, with a sighted review loop over the frames.",
   "author": {
     "name": "SuperHQ",

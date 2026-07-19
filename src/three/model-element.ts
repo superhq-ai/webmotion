@@ -278,20 +278,52 @@ export class WModel extends WEntity {
         if (cw < bucket.minW) bucket.minW = cw;
         if (cw > bucket.maxW) bucket.maxW = cw;
       }
-      slices = acc.map((bucket, i) => {
+      // Low-poly meshes leave buckets with few or no vertices; an empty
+      // bucket must inherit from its neighbors, not snap to zero, and
+      // the whole line gets smoothed so sparse sampling cannot zigzag.
+      const raw = acc.map((bucket, i) => {
         const empty = bucket.minU === Infinity;
-        const coords = [0, 0, 0];
-        coords[axis] = lo + ((i + 0.5) / samples) * span;
-        coords[u] = empty ? 0 : (bucket.minU + bucket.maxU) / 2;
-        coords[w2] = empty ? 0 : (bucket.minW + bucket.maxW) / 2;
         return {
-          x: coords[0]!,
-          y: coords[1]!,
-          z: coords[2]!,
+          along: lo + ((i + 0.5) / samples) * span,
+          cu: empty ? null : (bucket.minU + bucket.maxU) / 2,
+          cw: empty ? null : (bucket.minW + bucket.maxW) / 2,
           hw: empty
-            ? 0
+            ? null
             : Math.max(bucket.maxU - bucket.minU, bucket.maxW - bucket.minW) / 2,
         };
+      });
+      const filled = raw.map((s) => ({ ...s }));
+      for (let i = 0; i < filled.length; i++) {
+        const slice = filled[i]!;
+        if (slice.cu !== null) continue;
+        let prev = i - 1;
+        while (prev >= 0 && filled[prev]!.cu === null) prev--;
+        let next = i + 1;
+        while (next < filled.length && filled[next]!.cu === null) next++;
+        const a = prev >= 0 ? filled[prev]! : null;
+        const b = next < filled.length ? filled[next]! : null;
+        const mixT = a && b ? (i - prev) / (next - prev) : 0;
+        slice.cu = a && b ? a.cu! + (b.cu! - a.cu!) * mixT : (a?.cu ?? b?.cu ?? 0);
+        slice.cw = a && b ? a.cw! + (b.cw! - a.cw!) * mixT : (a?.cw ?? b?.cw ?? 0);
+        slice.hw = a && b ? a.hw! + (b.hw! - a.hw!) * mixT : (a?.hw ?? b?.hw ?? 0);
+      }
+      for (let pass = 0; pass < 2; pass++) {
+        const before = filled.map((s) => ({ cu: s.cu!, cw: s.cw!, hw: s.hw! }));
+        for (let i = 0; i < filled.length; i++) {
+          const a = before[Math.max(0, i - 1)]!;
+          const b = before[i]!;
+          const c = before[Math.min(before.length - 1, i + 1)]!;
+          filled[i]!.cu = (a.cu + b.cu * 2 + c.cu) / 4;
+          filled[i]!.cw = (a.cw + b.cw * 2 + c.cw) / 4;
+          filled[i]!.hw = (a.hw + b.hw * 2 + c.hw) / 4;
+        }
+      }
+      slices = filled.map((s) => {
+        const coords = [0, 0, 0];
+        coords[axis] = s.along;
+        coords[u] = s.cu!;
+        coords[w2] = s.cw!;
+        return { x: coords[0]!, y: coords[1]!, z: coords[2]!, hw: s.hw! };
       });
       this.slotSlices.set(slot, slices);
     }
