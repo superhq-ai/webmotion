@@ -35,15 +35,18 @@
       "import": "./dist/live/index.js"
     }
   },
+  "bin": {
+    "webmotion": "./dist/cli/index.js"
+  },
   "files": [
     "dist",
     "src/html-in-canvas/CREDITS.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/copy-decoders.mjs",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cli.json && node scripts/copy-decoders.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.cli.json --noEmit",
     "demo": "npm run build && vite",
     "demo:build": "npm run build && vite build"
   },
@@ -58,6 +61,7 @@
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
     "@types/three": "^0.185.1",
     "happy-dom": "^20.10.6",
     "playwright": "^1.61.1",
@@ -71,9 +75,13 @@
     "mp4-muxer": "^5.2.2"
   },
   "peerDependencies": {
+    "playwright": ">=1.40.0",
     "three": ">=0.150.0"
   },
   "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    },
     "three": {
       "optional": true
     }

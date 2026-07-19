@@ -5,3 +5,6 @@ examples/build/
 .DS_Store
 # demo export downloads dropped at the repo root while testing
 /*.mp4
+
+# contact sheets written by `webmotion shoot`
+.webmotion/

@@ -1,0 +1,14 @@
+// The `webmotion` command line tool. Split from the library build because it
+// runs on Node (it needs node types, which the browser build deliberately
+// excludes) and because nothing in src/cli belongs in the package's public
+// entry points. Emits to dist/cli alongside the library.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src/cli"],
+  "exclude": ["**/*.test.ts"]
+}
