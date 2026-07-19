@@ -53,6 +53,8 @@ interface RunningEffect {
   els: HTMLElement[];
   /** Prop frame past which a burst effect unmounts; Infinity for toggles. */
   endFrame: number;
+  /** Scheduled fragment audio, stopped with the effect. */
+  audio: ScheduledAudio | null;
 }
 
 export interface EffectOptions {
@@ -314,6 +316,16 @@ export class LiveStage {
       tween.setAttribute("start", String(from + startFrame));
       tween.setAttribute("end", String(to + startFrame));
     }
+    // Fragment audio is authored effect-relative like the tweens and
+    // shifted onto the prop clock the same way.
+    for (const audioEl of Array.from(holder.querySelectorAll("w-audio"))) {
+      audioEl.setAttribute("from", String(num(audioEl.getAttribute("from"), 0) + startFrame));
+    }
+    const clips = collectAudioClips(
+      holder,
+      instance.template.fps,
+      this.durationOf(instance.template),
+    );
 
     const target = options.target
       ? (instance.root.querySelector<HTMLElement>(options.target) ?? instance.root)
@@ -342,9 +354,16 @@ export class LiveStage {
     const id = options.id ?? `fx-${++this.effectSeq}`;
     this.clearEffect(name, id); // a re-applied handle replaces its run
     const frames = options.frames ?? 300;
-    instance.effects.set(id, {
+    const entry: RunningEffect = {
       els: mounted,
       endFrame: (options.mode ?? "burst") === "burst" ? startFrame + frames : Infinity,
+      audio: null,
+    };
+    instance.effects.set(id, entry);
+    this.startClipAudio(instance, clips, (audio) => {
+      // The effect may already be gone by the time a late decode lands.
+      if (instance.effects.get(id) === entry) entry.audio = audio;
+      else audio.stop();
     });
     return id;
   }
@@ -358,6 +377,7 @@ export class LiveStage {
       const effect = instance.effects.get(key);
       if (!effect) continue;
       instance.effects.delete(key);
+      effect.audio?.stop();
       for (const el of effect.els) {
         const host = el.parentElement as { wmDropFx?: (el: HTMLElement) => void } | null;
         if (el.tagName === "W-SHADER-FX" && typeof host?.wmDropFx === "function") {
@@ -473,6 +493,7 @@ export class LiveStage {
     if (!instance) return;
     this.instances.delete(name);
     instance.audio?.stop();
+    for (const effect of instance.effects.values()) effect.audio?.stop();
     this.unmountSubtree(instance.root);
     if (this.instances.size === 0 && this.unsubscribe) {
       this.unsubscribe();
@@ -538,31 +559,42 @@ export class LiveStage {
   }
 
   private startAudio(instance: Instance): void {
-    const { template } = instance;
-    const clips = collectAudioClips(instance.root, template.fps, this.durationOf(template));
+    const clips = collectAudioClips(
+      instance.root,
+      instance.template.fps,
+      this.durationOf(instance.template),
+    );
+    this.startClipAudio(instance, clips, (audio) => {
+      instance.audio = audio;
+    });
+  }
+
+  /** Schedule clips against the prop clock, decoding late if the sources
+   *  were not preloaded. Late audio beats no audio; preload() avoids the
+   *  decode path. */
+  private startClipAudio(
+    instance: Instance,
+    clips: ReturnType<typeof collectAudioClips>,
+    assign: (audio: ScheduledAudio) => void,
+  ): void {
     if (clips.length === 0 || typeof AudioContext === "undefined") return;
+    const { template } = instance;
     try {
       const ctx = this.ensureAudioContext();
       if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+      const schedule = () => {
+        const elapsed = ((this.ticker.now() - instance.startMs) / 1000) * template.fps;
+        assign(scheduleClips(ctx, clips, this.buffers, template.fps, elapsed, ctx.currentTime));
+      };
       const missing = clips.some((c) => !this.buffers.has(c.src));
       if (!missing) {
-        instance.audio = scheduleClips(ctx, clips, this.buffers, template.fps, 0, ctx.currentTime);
+        schedule();
         return;
       }
-      // Not preloaded: decode now and schedule from wherever the prop is by
-      // then. Late audio beats no audio; preload() avoids this path.
       void loadClipBuffers(ctx, clips).then((decoded) => {
         for (const [src, buf] of decoded) this.buffers.set(src, buf);
         if (!this.instances.has(template.name)) return;
-        const elapsed = ((this.ticker.now() - instance.startMs) / 1000) * template.fps;
-        instance.audio = scheduleClips(
-          ctx,
-          clips,
-          this.buffers,
-          template.fps,
-          elapsed,
-          ctx.currentTime,
-        );
+        schedule();
       });
     } catch (e) {
       console.warn("[webmotion] prop audio failed to start", template.name, e);

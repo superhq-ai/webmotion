@@ -111,6 +111,9 @@ fragment are authored relative to the effect's own start; the stage
 offsets them onto the prop's clock at apply, so a fragment is one
 artifact regardless of when it fires.
 
+- Fragments may carry `w-audio`: clips are authored effect-relative
+  like the tweens, shifted onto the prop clock at apply, scheduled
+  through the same engine audio path, and stopped with the effect.
 - `mode: "burst"` (default) unmounts the effect after `frames`;
   `mode: "toggle"` holds until `clearEffect(name, handle)`.
 - Re-applying an explicit `id` replaces that run instead of stacking.
