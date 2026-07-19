@@ -31,6 +31,8 @@ A `<w-animate>` element declares one interpolation of one property over a frame 
 | `start` | `0` | First frame of the window, in the local frame space of the nearest enclosing `<w-sequence>`. |
 | `end` | `0` | Last frame of the window. |
 | `easing` | `linear` | A named easing from the animation module (`easeOutCubic`, `easeInOutSine`, ...). Unknown names fall back to `linear`. |
+| `loop` | `0` | Loop period in frames. When positive, the local frame is taken modulo this before sampling, so the tween repeats forever; built for ambient motion on unbounded live timelines (a dwell-and-show turn, a sway). `0` plays once. |
+| `loop-offset` | `0` | Phase shift in frames applied before the modulo, so instances stamped from one template loop out of step. |
 
 Outside `[start, end]` the value clamps to the boundary value. All frame numbers are integers in local frame space; a tween inside `<w-sequence from="12">` starting at `start="0"` begins at composition frame 12.
 

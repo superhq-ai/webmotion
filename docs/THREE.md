@@ -47,6 +47,7 @@ import "@superhq/webmotion/three"; // registers <w-model>
 | `loop` | `"false"` clamps at the last clip frame instead of wrapping | loops |
 | `rotation` | `"x y z"` static orientation in degrees, about the model center | `0 0 0` |
 | `spin` | turntable rotation around Y in degrees per second, frame-driven | `0` |
+| | Direct `<w-animate>` children may tween `rotation-x`, `rotation-y`, `rotation-z` (degrees; a tweened axis replaces the static value). With `loop`, this gives ambient motion such as a periodic show-off turn. | |
 | `lights` | preset rig: `neutral`, `studio`, `dramatic`, `flat`, `none` | `neutral` |
 | `environment` | `studio` (built-in room, no download) or `url(file.hdr)` | none |
 | `environment-intensity` | environment contribution multiplier | `1` |

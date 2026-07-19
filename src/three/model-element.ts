@@ -8,8 +8,9 @@
 // a slide, fade, spin, or zoom.
 import * as THREE from "three";
 import { WEntity } from "../elements/elements.js";
-import type { FrameContext } from "../elements/registry.js";
+import { gatherTweens, type FrameContext } from "../elements/registry.js";
 import { num } from "../elements/parse.js";
+import { readTween, sampleTween } from "../elements/tween.js";
 import { sharedRenderer } from "./shared-renderer.js";
 import { loadGLTF, instantiate } from "./model-cache.js";
 import {
@@ -163,10 +164,20 @@ export class WModel extends WEntity {
     }
 
     // Static orientation plus a frame-driven turntable spin (degrees per
-    // second around Y), both pure functions of the frame.
+    // second around Y), both pure functions of the frame. Direct w-animate
+    // children may tween rotation-x/y/z (degrees, replacing that axis),
+    // which with loop gives ambient motion like a dwell-and-show turn.
     const rot = parseVec3(this.getAttribute("rotation")) ?? new THREE.Vector3();
     const spin = num(this.getAttribute("spin"), 0);
-    const yDeg = rot.y + spin * (ctx.frame / ctx.fps);
+    let xDeg = rot.x;
+    let yDeg = rot.y + spin * (ctx.frame / ctx.fps);
+    let zDeg = rot.z;
+    for (const tween of gatherTweens(this)) {
+      const data = readTween(tween);
+      if (data.property === "rotation-y") yDeg = sampleTween(data, ctx.frame);
+      else if (data.property === "rotation-x") xDeg = sampleTween(data, ctx.frame);
+      else if (data.property === "rotation-z") zDeg = sampleTween(data, ctx.frame);
+    }
 
     // Declarative lights and shader effects sample their tweens here; their
     // state joins the render key so animation on them re-renders a static
@@ -181,14 +192,14 @@ export class WModel extends WEntity {
     }
 
     const key =
-      time + ":" + rot.x + ":" + yDeg + ":" + rot.z + ":" + lightsKey +
+      time + ":" + xDeg + ":" + yDeg + ":" + zDeg + ":" + lightsKey +
       ":g" + sharedRenderer.generation;
     if (key === this.lastRenderKey) return;
     this.lastRenderKey = key;
 
     if (this.mixer) this.mixer.setTime(time);
     const toRad = Math.PI / 180;
-    this.pivot.rotation.set(rot.x * toRad, yDeg * toRad, rot.z * toRad);
+    this.pivot.rotation.set(xDeg * toRad, yDeg * toRad, zDeg * toRad);
     this.renderPass();
   }
 
