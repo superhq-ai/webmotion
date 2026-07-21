@@ -1,6 +1,6 @@
 ---
 name: webmotion
-description: Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Includes 3D: glTF/GLB models with animation clips, turntable spins, studio lighting, runtime text on material slots, and app-defined TSL shader effects via <w-model>. Includes live mode: unbounded event-driven overlays (OBS browser sources, stream alerts, persistent widgets) via LiveStage. Use when the user wants motion graphics, title cards, launch/product videos, product turntables, kinetic typography, stream overlays, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas/3D animation exported to MP4.
+description: "Author deterministic, browser-rendered videos with @superhq/webmotion, declarative <w-*> HTML scenes or a TypeScript API, live DOM preview, MP4 export via WebCodecs, no headless Chrome or FFmpeg. Includes 3D: glTF/GLB models with animation clips, turntable spins, studio lighting, runtime text on material slots, and app-defined TSL shader effects via <w-model>. Includes live mode: unbounded event-driven overlays (OBS browser sources, stream alerts, persistent widgets) via LiveStage. Use when the user wants motion graphics, title cards, launch/product videos, product turntables, kinetic typography, stream overlays, or programmatic video in the browser; mentions webmotion or @superhq/webmotion; or wants DOM/canvas/3D animation exported to MP4."
 ---
 
 # WebMotion
