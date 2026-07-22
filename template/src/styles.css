@@ -146,27 +146,179 @@ button {
 .stage {
   flex: 1;
   min-height: 0;
-  --w-player-accent: var(--ink);
-  --w-player-accent-contrast: #0f0f0f;
-  --w-player-line: var(--line);
-  --w-player-chip: var(--chip);
-  --w-player-chip-active: var(--chip-hi);
-  --w-player-audio: #1c1c1c;
-  --w-player-audio-line: var(--line-hi);
-  --w-player-fullscreen-bg: #000;
-  color: var(--ink-2);
-}
-.stage::part(viewport) {
-  padding: 24px;
-}
-.stage::part(bar) {
-  padding: 14px 20px;
-  background: var(--bg);
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: #0b0b0b;
 }
 
-.stage-element {
+.frame {
+  width: 100%;
+  max-width: 1100px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  line-height: 0;
+}
+
+/* Timeline ---------------------------------------------------------------- */
+
+.timeline {
+  flex: none;
+  padding: 0 18px;
+  border-top: 1px solid var(--line);
+}
+
+/* Chapters, straight off the `label` on your top-level <w-sequence> beats. */
+.chapters {
+  position: relative;
+  height: 22px;
+  margin-top: 10px;
+}
+.chapters[hidden] {
+  display: none;
+}
+
+.chapter {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  padding: 0 8px;
+  border-left: 1px solid var(--line-hi);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--ink-4);
+  transition: color 0.15s;
+}
+.chapter:hover {
+  color: var(--ink-2);
+}
+.chapter.on {
+  color: var(--ink);
+  border-left-color: var(--ink-2);
+}
+
+/* The track. A hairline until you reach for it. */
+.track {
+  position: relative;
+  height: 18px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.track-line,
+.track-played {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  transition: height 0.15s;
+}
+.track-line {
+  left: 0;
+  right: 0;
+  background: var(--line-hi);
+}
+.track-played {
+  left: 0;
+  width: 0;
+  background: var(--ink-2);
+}
+.track:hover .track-line,
+.track:hover .track-played {
+  height: 3px;
+}
+
+.track-marks i {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 8px;
+  transform: translateY(-50%);
+  background: var(--line-hi);
+}
+
+.track-head {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 2px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+}
+
+/* One block per <w-audio> clip, on the timeline it actually occupies. */
+.lane {
+  position: relative;
+  height: 16px;
+  margin-bottom: 8px;
+}
+.lane[hidden] {
+  display: none;
+}
+
+.clip {
+  position: absolute;
+  top: 0;
+  height: 12px;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: var(--chip);
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--ink-4);
+}
+
+/* Controls ---------------------------------------------------------------- */
+
+.controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  color: var(--ink-3);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.controls .off {
+  display: none;
+}
+
+.controls button:hover {
+  background: var(--chip);
+  color: var(--ink);
+}
+
+.chapter-now {
+  margin-left: auto;
+  text-transform: uppercase;
+  color: var(--ink-4);
 }
 
 /* Export result ----------------------------------------------------------- */
