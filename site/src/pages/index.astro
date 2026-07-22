@@ -1,0 +1,251 @@
+---
+import { Code } from "astro:components";
+import Report from "../layouts/Report.astro";
+import Column from "../components/Column.astro";
+import Section from "../components/Section.astro";
+import Figure from "../components/Figure.astro";
+import Stage from "../components/Stage.astro";
+import Command from "../components/Command.astro";
+import { AUTHORING_SOURCE } from "../scenes/meta.js";
+
+const base = import.meta.env.BASE_URL;
+const repo = "https://github.com/superhq-ai/webmotion";
+
+const sections = [
+  { id: "overview", label: "Overview" },
+  { id: "rule", label: "The one rule" },
+  { id: "throughput", label: "Export throughput" },
+  { id: "authoring", label: "Authoring" },
+  { id: "surface", label: "What is in the box" },
+  { id: "start", label: "Start" },
+];
+
+const box = [
+  {
+    term: "Declarative elements",
+    def: "<code>&lt;w-composition&gt;</code>, <code>&lt;w-sequence&gt;</code>, <code>&lt;w-text&gt;</code>, <code>&lt;w-rect&gt;</code>, <code>&lt;w-el&gt;</code>. The scene is markup you can read in a diff.",
+  },
+  {
+    term: "A motion spec",
+    def: "Tween windows in local sequence time, named animations, eleven easings plus any <code>cubic-bezier()</code>. The composition rules are written down rather than guessed.",
+  },
+  {
+    term: "Data templating",
+    def: "<code>&lt;w-for&gt;</code> stamps children from JSON with arithmetic placeholders. One scene, many personalised cuts, and no reactivity to reason about.",
+  },
+  {
+    term: "Sound on the same clock",
+    def: "<code>&lt;w-audio&gt;</code> lives on the timeline like anything else. Export mixes it sample-exact through an <code>OfflineAudioContext</code> and muxes AAC.",
+  },
+  {
+    term: "3D that obeys the clock",
+    def: "<code>&lt;w-model&gt;</code> plays glTF clips on the frame index: turntables, studio lighting, runtime text on material slots, app-defined TSL shader effects.",
+  },
+  {
+    term: "Live overlays",
+    def: "<code>LiveStage</code> swaps the fixed timeline for event-driven props: OBS browser sources, stream alerts, persistent widgets. Idle cost is zero.",
+  },
+];
+---
+
+<Report
+  title="WebMotion: deterministic video, composed in the browser"
+  description="Compose video in the DOM, encode it with WebCodecs, download an MP4. No FFmpeg, no headless Chrome, no render farm. Every frame is a pure function of the frame index."
+  sections={sections}
+>
+  <!-- Overview ------------------------------------------------------------->
+  <div id="overview" class="pt-6 lg:pt-8"></div>
+
+  <Column class="pb-16">
+    <h1 class="title">WebMotion v0.16</h1>
+    <p class="mt-4 text-[1.0625rem] text-ink-2">
+      Browser-native, deterministic video composition
+    </p>
+
+    <Figure
+      n={1}
+      caption="A live composition, not a video file. The frame number is drawn by the scene, so scrubbing anywhere keeps it honest."
+    >
+      <Stage />
+    </Figure>
+
+    <div class="flex flex-wrap gap-2.5">
+      <a
+        href={`${repo}/tree/main/docs`}
+        target="_blank"
+        rel="noreferrer"
+        class="flex h-9 items-center gap-2.5 rounded-[3px] bg-chip-hi px-4 text-[0.875rem] text-ink transition-colors hover:bg-line-hi"
+      >
+        Read the docs <span aria-hidden="true">&rarr;</span>
+      </a>
+      <a
+        href={repo}
+        target="_blank"
+        rel="noreferrer"
+        class="flex h-9 items-center gap-2.5 rounded-[3px] bg-chip px-4 text-[0.875rem] text-ink-2 transition-colors hover:bg-chip-hi hover:text-ink"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" class="fill-current">
+          <path
+            d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+          ></path>
+        </svg>
+        Source
+      </a>
+      <button
+        type="button"
+        data-copy="npm install @superhq/webmotion"
+        class="copy-btn flex h-9 items-center gap-2.5 rounded-[3px] border border-line px-3.5 font-mono text-[0.8125rem] text-ink-2 transition-colors hover:border-line-hi hover:text-ink"
+      >
+        <code>npm install @superhq/webmotion</code>
+        <svg class="i-copy" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.3" d="M5.5 5.5v-3h8v8h-3M2.5 5.5h8v8h-8z" />
+        </svg>
+        <svg class="i-done hidden" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 8.5 6.5 12 13 4.5" />
+        </svg>
+      </button>
+    </div>
+
+  </Column>
+
+  <!-- The one rule --------------------------------------------------------->
+  <Section id="rule" n={2} title="The one rule" />
+  <Column class="pt-9 pb-14">
+    <p class="max-w-[64ch]">
+      Everything visible is a pure function of the current frame. Nothing reads the wall clock: no
+      <code class="code-chip">Date.now()</code>, no <code class="code-chip">Math.random()</code>, no
+      requestAnimationFrame timestamps. Give the renderer a frame index and it draws exactly one
+      image.
+    </p>
+    <p class="mt-4 max-w-[64ch]">
+      That single constraint is what the rest rests on. Seeking is exact because there is no state to
+      wind forward. Frames are cacheable because a frame is determined by its index alone. And the
+      export is trustworthy because the encoder walks frames far faster than wall time without
+      anything drifting, so the MP4 is the preview, pixel for pixel.
+    </p>
+
+  </Column>
+
+  <!-- Export throughput ---------------------------------------------------->
+  <Section id="throughput" n={3} title="Export throughput" />
+  <Column class="pt-9 pb-14">
+    <p class="max-w-[64ch]">
+      Rendering happens in the tab you are reading this in, so the honest way to report speed is to
+      let you measure it. Each case below builds a composition, exports a real MP4, and reports what
+      your machine managed.
+    </p>
+
+    <div class="mt-8">
+      <div class="flex items-center justify-between gap-4 border-b border-line pb-2.5">
+        <span class="micro">Case</span>
+        <span class="micro">Frames per second</span>
+      </div>
+      <div id="bench-rows"></div>
+      <div class="flex flex-wrap items-center gap-4 pt-4">
+        <button
+          id="bench-run"
+          class="h-8 rounded-[3px] bg-chip-hi px-3.5 text-[0.8125rem] text-ink transition-colors hover:bg-line-hi disabled:opacity-45"
+        >
+          Run in this browser
+        </button>
+        <span id="bench-status" class="note">Nothing measured yet.</span>
+      </div>
+    </div>
+
+  </Column>
+
+  <!-- Authoring ------------------------------------------------------------>
+  <Section id="authoring" n={4} title="Authoring" />
+  <Column class="pt-9 pb-14">
+    <p class="max-w-[64ch]">
+      A scene is markup. Below is not a sample of what the code looks like; it is the code, and
+      Figure 2 is what it renders. Timing is structure rather than parameters: a
+      <code class="code-chip">&lt;w-sequence&gt;</code> shifts the frame origin for its subtree, so nesting
+      them staggers beats with nothing to drift out of sync. Motion is tweens, each
+      <code class="code-chip">&lt;w-animate&gt;</code> covering one property over one frame window. Everything
+      that does not vary with the frame is ordinary CSS.
+    </p>
+
+    <Figure n={2} caption="Rendered from the listing below, which is the same markup.">
+      <div id="authoring-mount" class="aspect-video w-full"></div>
+    </Figure>
+
+    <div class="overflow-x-auto border border-line p-4">
+      <Code code={AUTHORING_SOURCE} lang="html" theme="github-dark-default" />
+    </div>
+
+  </Column>
+
+  <!-- What is in the box --------------------------------------------------->
+  <Section id="surface" n={5} title="What is in the box" />
+  <Column class="pt-9 pb-14">
+    <dl class="max-w-[64ch]">
+      {
+        box.map((item, i) => (
+          <div class:list={["py-4", i > 0 && "border-t border-line"]}>
+            <dt class="subheading">{item.term}</dt>
+            <dd class="mt-1.5" set:html={item.def} />
+          </div>
+        ))
+      }
+    </dl>
+  </Column>
+
+  <!-- Start ---------------------------------------------------------------->
+  <Section id="start" n={6} title="Start" />
+  <Column class="pt-9 pb-20">
+    <p class="max-w-[64ch]">
+      Add WebMotion to a project you already have, or scaffold the starter, which arrives with a
+      live preview, a zoomable scrub timeline with section labels and an audio lane, and one-click
+      export. Take whichever line fits; the starter already depends on the package.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-px border border-line bg-line">
+      <Command cmd="npm install @superhq/webmotion" label="existing project" />
+      <Command cmd="npx degit superhq-ai/webmotion/template my-video" label="new project" />
+      <Command cmd="npx skills add superhq-ai/webmotion" label="for your agent" />
+    </div>
+
+    <p class="mt-6 max-w-[64ch]">
+      An agent writing video is working blind: it can author three hundred frames of timing and never
+      see a pixel. The skill teaches the format, and
+      <code class="code-chip">npx webmotion shoot</code> renders the key frames back as PNGs for the model
+      to read, while <code class="code-chip">npx webmotion lint</code> catches what a contact sheet hides.
+    </p>
+
+    <p class="mt-6 text-ink-2">
+      <a
+        href={`${repo}/tree/main/site/src/scenes`}
+        target="_blank"
+        rel="noreferrer"
+        class="prose-link hover:decoration-ink-2">Read the scenes behind this page</a
+      > &rarr;
+    </p>
+
+  </Column>
+</Report>
+
+<script>
+  import { mountStage } from "../scripts/stage.js";
+  import { mountBench } from "../scripts/bench.js";
+  import { createAuthoring } from "../scenes/authoring.js";
+  import { wireCopyButtons } from "../scripts/copy.js";
+
+  mountStage();
+  mountBench();
+  wireCopyButtons();
+
+  const mount = document.getElementById("authoring-mount");
+  if (mount) {
+    const comp = createAuthoring();
+    mount.replaceChildren(comp);
+    comp.ready.then(() => {
+      comp.muted = true;
+    });
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      new IntersectionObserver(([e]) => (e.isIntersecting ? comp.play() : comp.pause()), {
+        threshold: 0.3,
+      }).observe(mount);
+    }
+  }
+</script>

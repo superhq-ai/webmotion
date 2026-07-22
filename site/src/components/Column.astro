@@ -1,0 +1,13 @@
+---
+// The reading column: content stays at measure width however wide the window is.
+interface Props {
+  class?: string;
+}
+const { class: extra = "" } = Astro.props;
+---
+
+<div class={`px-4 lg:pr-0 lg:pl-12 ${extra}`}>
+  <div class="w-full max-w-[var(--measure)] min-w-0">
+    <slot />
+  </div>
+</div>

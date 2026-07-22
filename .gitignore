@@ -1,6 +1,5 @@
 node_modules/
 dist/
-examples/build/
 *.log
 .DS_Store
 # demo export downloads dropped at the repo root while testing

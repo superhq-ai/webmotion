@@ -1,0 +1,96 @@
+---
+// The section index: numbers matching the section bands, and labels. The one
+// you are reading is simply brighter.
+interface Props {
+  sections?: { id: string; label: string }[];
+}
+const { sections = [] } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<aside class="hidden w-[260px] flex-none lg:block">
+  <div class="sticky top-0 flex h-dvh flex-col">
+    <div class="flex items-center gap-6 px-6 py-6">
+      <a href={base} aria-label="WebMotion" class="text-ink">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path
+            d="M4.5 20L7.5 4M10.5 20L13.5 4M16.5 20L19.5 4"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            fill="none"></path>
+        </svg>
+      </a>
+      <a
+        href="https://github.com/superhq-ai/webmotion/tree/main/docs"
+        target="_blank"
+        rel="noreferrer"
+        class="micro transition-colors hover:text-ink">Docs</a
+      >
+      <a
+        href="https://github.com/superhq-ai/webmotion"
+        target="_blank"
+        rel="noreferrer"
+        class="micro transition-colors hover:text-ink">GitHub</a
+      >
+    </div>
+
+    {
+      sections.length > 0 && (
+        <nav id="rail-index" aria-label="Sections" class="mt-8 px-6">
+          <ol class="flex flex-col gap-3">
+            {sections.map((s, i) => (
+              <li>
+                <a href={`#${s.id}`} data-rail={s.id} class="chapter grid grid-cols-[1.6rem_1fr]">
+                  <span class="num self-center font-mono text-[0.625rem] tabular-nums text-ink-4">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span class="label text-[0.875rem] leading-snug text-ink-3">{s.label}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
+    <div class="mt-auto px-6 pb-6">
+      <span class="micro">Product of SuperHQ</span>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .chapter:hover .label {
+    color: var(--color-ink-2);
+  }
+  .chapter[aria-current="true"] .label {
+    color: var(--color-ink);
+  }
+  .chapter[aria-current="true"] .num {
+    color: var(--color-ink-2);
+  }
+</style>
+
+<script>
+  const links = [...document.querySelectorAll<HTMLAnchorElement>("a[data-rail]")];
+  if (links.length) {
+    const parts = links
+      .map((link) => ({ link, el: document.getElementById(link.dataset.rail!) }))
+      .filter((p): p is { link: HTMLAnchorElement; el: HTMLElement } => p.el !== null);
+
+    function update() {
+      // The last section whose head has passed the line you are reading on.
+      const head = window.scrollY + window.innerHeight * 0.38;
+      let current = 0;
+      parts.forEach((p, i) => {
+        if (p.el.getBoundingClientRect().top + window.scrollY <= head) current = i;
+      });
+      parts.forEach((p, i) => p.link.setAttribute("aria-current", String(i === current)));
+    }
+
+    update();
+    addEventListener("scroll", update, { passive: true });
+    addEventListener("resize", update);
+  }
+</script>

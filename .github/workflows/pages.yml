@@ -1,6 +1,6 @@
-# Builds the examples app and deploys it to GitHub Pages on every push to
-# main: https://superhq-ai.github.io/webmotion/
-name: Deploy demos
+# Builds the website (site/, Astro) and deploys it to GitHub Pages on every
+# push to main: https://superhq-ai.github.io/webmotion/
+name: Deploy site
 
 on:
   push:
@@ -31,7 +31,10 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # Pages serves the site from /webmotion/, so Astro needs the base path.
       - run: npm run demo:build
+        env:
+          SITE_BASE: /webmotion/
 
       - uses: actions/configure-pages@v5
         with:
@@ -39,7 +42,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: examples/build
+          path: site/dist
 
       - id: deployment
         uses: actions/deploy-pages@v4

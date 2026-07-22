@@ -1,0 +1,18 @@
+---
+// A section head: the chapter number in mono, then a serif title, in a band
+// between two hairlines. The number matches the rail, so the index and the
+// document use the same address for the same place.
+interface Props {
+  id: string;
+  n: number;
+  title: string;
+}
+const { id, n, title } = Astro.props;
+---
+
+<div id={id} class="border-t border-b border-line px-4 py-6 lg:pr-0 lg:pl-12">
+  <div class="flex items-baseline gap-4">
+    <span class="micro pt-px">{String(n).padStart(2, "0")}</span>
+    <h2 class="heading">{title}</h2>
+  </div>
+</div>

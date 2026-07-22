@@ -1,0 +1,132 @@
+---
+// The player under Figure 1. The scrub track is the divider between picture and
+// controls, and doubles as the encode progress bar, so the chrome never grows a
+// second bar to say what it is already showing.
+import { HERO } from "../scenes/meta.js";
+
+const last = HERO.duration - 1;
+// The scene this panel is playing. Figure 1 claims the panel is a composition
+// rather than a video; this is where a reader goes to check.
+const SOURCE = "https://github.com/superhq-ai/webmotion/blob/main/site/src/scenes/hero.js";
+---
+
+<div id="stage-mount" class="aspect-video w-full"></div>
+
+<div
+  id="stage-track"
+  role="slider"
+  tabindex="0"
+  aria-label="Scrub the composition"
+  aria-valuemin="0"
+  aria-valuemax={last}
+  aria-valuenow="0"
+  class="group relative h-4 w-full cursor-ew-resize touch-none border-t border-line select-none"
+>
+  <div
+    id="stage-played"
+    style="width:0%"
+    class="absolute top-1/2 left-0 h-px -translate-y-1/2 bg-line-hi transition-[height] duration-150 group-hover:h-[3px]"
+  >
+  </div>
+  <div
+    id="stage-encoded"
+    hidden
+    style="width:0%"
+    class="absolute top-1/2 left-0 h-[3px] -translate-y-1/2 bg-accent"
+  >
+  </div>
+  <div
+    id="stage-knob"
+    style="left:0%"
+    class="absolute top-1/2 h-3.5 w-px -translate-x-1/2 -translate-y-1/2 bg-ink-2"
+  >
+  </div>
+</div>
+
+<div class="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-line px-3 py-2.5">
+  <button
+    id="stage-play"
+    class="group/play flex size-6 items-center justify-center rounded-[3px] text-ink-2 transition-colors hover:bg-chip hover:text-ink"
+    aria-label="Play or pause"
+  >
+    <svg
+      viewBox="0 0 12 12"
+      width="9"
+      height="9"
+      aria-hidden="true"
+      class="hidden fill-current group-data-[playing]/play:block"
+    >
+      <path d="M2 1.5h2.6v9H2zM7.4 1.5H10v9H7.4z"></path>
+    </svg>
+    <svg
+      viewBox="0 0 12 12"
+      width="9"
+      height="9"
+      aria-hidden="true"
+      class="block fill-current group-data-[playing]/play:hidden"
+    >
+      <path d="M3 1.5 10.5 6 3 10.5z"></path>
+    </svg>
+  </button>
+
+  <button
+    id="stage-mute"
+    class="flex size-6 flex-none items-center justify-center rounded-[3px] text-ink-4 transition-colors hover:bg-chip hover:text-ink"
+  >
+    <span class="sr-only">Toggle sound</span>
+    <svg class="i-muted" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.3"
+        stroke-linecap="round"
+        d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.5 6.5l3 3m0-3-3 3"></path>
+    </svg>
+    <svg class="i-sound hidden" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.3"
+        stroke-linecap="round"
+        d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.3 5.8a3 3 0 0 1 0 4.4M12.4 4a5.6 5.6 0 0 1 0 8"></path>
+    </svg>
+  </button>
+
+  <span id="stage-time" class="font-mono text-[0.6875rem] tabular-nums text-ink-3">0:00.00</span>
+
+  <span
+    id="stage-readout"
+    class="ml-auto font-mono text-[0.6875rem] tracking-[0.06em] tabular-nums text-ink-3"></span>
+
+  <a
+    href={SOURCE}
+    target="_blank"
+    rel="noreferrer"
+    title="Read the markup this panel is playing"
+    class="flex h-7 items-center gap-2 rounded-[3px] px-2 text-[0.8125rem] text-ink-3 transition-colors hover:bg-chip hover:text-ink"
+  >
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M6 4 2.5 8 6 12M10 4l3.5 4-3.5 4"></path>
+    </svg>
+    Source
+  </a>
+
+  <button
+    id="stage-export"
+    class="h-7 rounded-[3px] bg-chip-hi px-3 text-[0.8125rem] text-ink transition-colors hover:bg-line-hi disabled:opacity-45"
+  >
+    Export MP4
+  </button>
+</div>
+
+<div
+  id="stage-result"
+  class="hidden border-t border-line px-3 py-2 font-mono text-[0.6875rem] data-[done]:block"
+>
+</div>

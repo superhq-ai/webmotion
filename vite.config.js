@@ -3,9 +3,9 @@ import { defineConfig } from "vite";
 
 const fromRoot = (p) => fileURLToPath(new URL(p, import.meta.url));
 
-// The examples app imports the library by its published names and Vite resolves
-// them to the built output in dist. Run `npm run build` first (the demo script
-// does this for you) so these files exist.
+// The website lives in site/ and is built by Astro (`npm run demo`). What is
+// left here is the rasterizer bench, a dev harness for measuring the
+// html-in-canvas path. Run it with `npm run bench`.
 export default defineConfig({
   root: "examples",
   base: "./",
@@ -22,9 +22,14 @@ export default defineConfig({
     ],
   },
   server: {
-    open: true,
     // dist lives outside the examples root, so let Vite serve from the repo root.
     fs: { allow: [fromRoot("./")] },
   },
-  build: { outDir: "build", emptyOutDir: true },
+  build: {
+    outDir: "build",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: { bench: fromRoot("./examples/bench.html") },
+    },
+  },
 });

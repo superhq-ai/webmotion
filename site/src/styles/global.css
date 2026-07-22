@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+/* The page is a technical report, not a landing page: a left index rail, one
+   left-aligned column of measure-width prose, serif section headings over a
+   muted sans body, notes in the right margin, figures with captions, and a
+   mono micro-footer. Monochrome, with a single accent spent sparingly. */
+@theme {
+  --color-bg: #0f0f0f;
+  --color-raised: #161616;
+  --color-chip: #1c1c1c;
+  --color-chip-hi: #242424;
+
+  /* Solid greys, not alpha whites: hairlines stay crisp over any surface. */
+  --color-line: #262626;
+  --color-line-hi: #424242;
+
+  --color-ink: #e1e1e1;
+  --color-ink-2: #a1a1a1;
+  --color-ink-3: #898989;
+  --color-ink-4: #5e5e5e;
+
+  --color-accent: #5b83ff;
+  --color-accent-hi: #86a3ff;
+
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Source Serif 4", Iowan Old Style, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Report geometry. */
+  --rail: 260px;
+  --measure: 720px;
+  --margin-note: 260px;
+}
+
+@layer base {
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink-3);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    font-feature-settings: "cv05" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-bg);
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-ink-2);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* The page title: light weight, open tracking. Nothing here is bold. */
+@utility title {
+  font-family: var(--font-sans);
+  font-size: clamp(1.75rem, 3.2vw, 2.25rem);
+  font-weight: 400;
+  line-height: 1.17;
+  letter-spacing: 0.055em;
+  color: var(--color-ink);
+}
+
+/* Section headings are serif, and modest: 22px, regular. */
+@utility heading {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  font-weight: 400;
+  line-height: 1.32;
+  color: var(--color-ink);
+}
+
+@utility subheading {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+/* Figure captions and margin notes: serif italic, quiet. */
+@utility note {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-ink-3);
+}
+
+@utility micro {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-4);
+}
+
+/* Body links carry an underline, as in a paper. */
+@utility prose-link {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--color-line-hi);
+  transition: text-decoration-color 0.15s;
+}
+
+@utility code-chip {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.3;
+  padding: 0.05em 0.35em;
+  color: var(--color-ink-2);
+  background: var(--color-chip);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Inline code inside body prose, including html injected with set:html. */
+dd code,
+.prose-body code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  /* Keep the filled box well inside the line box: at body leading of 1.5 an
+     inline chip that inherits 1.5 of its own size plus vertical padding comes
+     within a couple of pixels of the lines above and below. */
+  line-height: 1.3;
+  padding: 0.05em 0.35em;
+  color: var(--color-ink-2);
+  background: var(--color-chip);
+  border-radius: 3px;
+}
+
+/* Copy-button feedback. Unlayered and global: Astro scopes component styles,
+   and these buttons are rendered from more than one template. */
+[data-copy][data-state="done"] {
+  color: var(--color-accent);
+}
+[data-copy][data-state="done"] .i-copy {
+  display: none;
+}
+[data-copy][data-state="done"] .i-done {
+  display: block;
+}
+
+/* Astro's <Code> renders a Shiki <pre>; the panel supplies the surface. */
+.astro-code {
+  background: transparent !important;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.75;
+  tab-size: 2;
+}
+
+/* Tailwind's preflight is not written with scene subtrees in mind: it resizes
+   sized imagery and flattens bare headings. Rolled back inside compositions,
+   unlayered so it beats preflight, and inside :where() so it weighs nothing and
+   any scene rule still wins. */
+w-composition :where(img, video, canvas, svg, iframe, embed, object) {
+  display: revert;
+  vertical-align: revert;
+  max-width: revert;
+  height: revert;
+}
+
+w-composition :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd, hr) {
+  margin: revert;
+  font-size: revert;
+  font-weight: revert;
+}
+
+w-composition :where(ul, ol) {
+  margin: revert;
+  padding: revert;
+  list-style: revert;
+}
+
+w-composition :where(*) {
+  border-width: revert;
+  border-style: revert;
+}
