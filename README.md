@@ -103,8 +103,8 @@ Need 3D? Install `three` and import `@superhq/webmotion/three` to get `<w-model>
 
 ## The site
 
-**Live: [superhq-ai.github.io/webmotion](https://superhq-ai.github.io/webmotion/)** - the hero
-there is a live composition you can scrub frame by frame and export to MP4 in the page.
+**Live: [webmotion.superhq.ai](https://webmotion.superhq.ai/)** - the hero there is a live
+composition you can scrub frame by frame and export to MP4 in the page.
 
 Run it locally:
 

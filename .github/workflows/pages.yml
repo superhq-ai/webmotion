@@ -1,5 +1,5 @@
 # Builds the website (site/, Astro) and deploys it to GitHub Pages on every
-# push to main: https://superhq-ai.github.io/webmotion/
+# push to main: https://webmotion.superhq.ai/
 name: Deploy site
 
 on:
@@ -31,10 +31,10 @@ jobs:
           cache: npm
 
       - run: npm ci
-      # Pages serves the site from /webmotion/, so Astro needs the base path.
+      # Served from the root of webmotion.superhq.ai, so no base path. The
+      # custom domain is kept by site/public/CNAME, which ships in the artifact
+      # so a deploy cannot reset it.
       - run: npm run demo:build
-        env:
-          SITE_BASE: /webmotion/
 
       - uses: actions/configure-pages@v5
         with:

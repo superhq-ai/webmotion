@@ -4,7 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 
 const fromSite = (p) => fileURLToPath(new URL(p, import.meta.url));
 
-// GitHub Pages serves this under /webmotion/; the workflow sets SITE_BASE.
+// Served from the root of webmotion.superhq.ai. SITE_BASE is here so the site
+// can still be built for a subpath (a project Pages URL, a preview deploy)
+// without editing this file.
 const base = process.env.SITE_BASE ?? "/";
 
 export default defineConfig({
