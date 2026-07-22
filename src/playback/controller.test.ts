@@ -141,4 +141,36 @@ describe("PlaybackController", () => {
     expect(controller.playing).toBe(false);
     expect(plays).toHaveLength(0);
   });
+
+
+  // An autoplaying composition reaches startPlayback with no user gesture, so
+  // its clips never get scheduled. Unmuting is a gesture and has to re-arm
+  // them, or the sound only ever arrives by scrubbing.
+  it("re-arms audio when unmuted mid-playback", () => {
+    const collectClips = vi.fn(() => [
+      { src: "score.m4a", from: 0, duration: 60, offset: 0, gain: 1 },
+    ]);
+    const controller = new PlaybackController({
+      fps: 30,
+      durationInFrames: 60,
+      renderFrame: () => {},
+      collectClips: collectClips as never,
+    });
+
+    controller.muted = true;
+    controller.play();
+    const armedWhileMuted = collectClips.mock.calls.length;
+
+    controller.muted = false;
+    expect(collectClips.mock.calls.length).toBeGreaterThan(armedWhileMuted);
+
+    // Unmuting while paused must not start anything.
+    controller.pause();
+    const armedAfterPause = collectClips.mock.calls.length;
+    controller.muted = true;
+    controller.muted = false;
+    expect(collectClips.mock.calls.length).toBe(armedAfterPause);
+
+    controller.destroy();
+  });
 });

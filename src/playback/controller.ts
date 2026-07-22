@@ -76,6 +76,7 @@ export class PlaybackController extends EventTarget {
     if (clamped === this.volumeValue) return;
     this.volumeValue = clamped;
     this.applyGain();
+    this.rearmAudioIfSilent();
     this.dispatch("w-volumechange", { volume: this.volumeValue, muted: this.mutedValue });
   }
 
@@ -87,6 +88,7 @@ export class PlaybackController extends EventTarget {
     if (value === this.mutedValue) return;
     this.mutedValue = value;
     this.applyGain();
+    this.rearmAudioIfSilent();
     this.dispatch("w-volumechange", { volume: this.volumeValue, muted: this.mutedValue });
   }
 
@@ -128,6 +130,25 @@ export class PlaybackController extends EventTarget {
 
   private dispatch(type: string, detail: unknown): void {
     this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
+  /**
+   * Bring audio up when a composition that started silent is unmuted.
+   *
+   * Clips are only ever armed by startPlayback, and an autoplaying composition
+   * reaches it with no user gesture behind it: the context is created
+   * suspended, resume() loses its race, and playback runs on the wall clock
+   * with nothing scheduled. Turning the sound up is itself a gesture, so it is
+   * the moment to try again. Without this, unmuting moves a gain on an empty
+   * graph and the only way to hear anything is to scrub, which restarts
+   * playback for unrelated reasons.
+   */
+  private rearmAudioIfSilent(): void {
+    if (this.disposed || !this.isPlaying) return;
+    if (this.mutedValue || this.volumeValue === 0) return;
+    if (this.audioHandle && this.audioCtx?.state === "running") return;
+    this.stopPlayback();
+    void this.startPlayback(this.frame);
   }
 
   private applyGain(): void {
