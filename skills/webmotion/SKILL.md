@@ -221,7 +221,7 @@ Both key their sampling off `label="..."` on top-level `<w-sequence>` beats, so 
 - Two tweens targeting the same property of the same element conflict across the whole timeline (clamped values still write; last one wins). For entrance + exit, put them on different nesting levels: wrapper `<w-el>` owns the exit, inner element owns the entrance. Opacity and transforms compose through nesting.
 - Anything time-based that isn't derived from the frame breaks determinism and export accuracy. CSS `transition`/`animation` on entities is the same trap: the exporter seeks frames faster than wall time, so transitions smear. Use `<w-animate>`.
 - Images in scenes must be same-origin (or CORS-readable); the rasterizer inlines them at export.
-- Custom webfonts: ensure they are loaded (`document.fonts.ready`) before export starts; system font stacks are safest.
+- Custom webfonts: ensure they are loaded (`document.fonts.ready`) before export starts, or the first frames rasterize in the fallback face. The exporter only embeds the faces a scene actually uses (matching family, and `unicode-range` covering the characters it renders), so a page-wide font link costs nothing on a scene that does not use it; system font stacks are still the cheapest and safest.
 - `<w-sequence>` controls `display`; do not also set `display` on it.
 - Export throws if no H.264 encoder is available; surface that error to the user (non-Chromium browsers).
 - Autoplay policy: audio preview needs a user gesture to start the `AudioContext`; `autoplay` compositions run silent until first interaction.

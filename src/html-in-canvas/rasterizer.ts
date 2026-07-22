@@ -103,6 +103,11 @@ export class DomRasterizer {
     }
 
     const entry = this.ensureEntry(node, cssW, cssH, bleed, Math.max(1, opts?.supersample ?? 1));
+    // Font families the scene actually asks for decide which @font-face rules
+    // survive into the frame. Recorded before buildSvg so the first frame is
+    // already pruned; a family appearing later drops the cached css and the
+    // next frame picks its faces up.
+    if (this.recordFontFamilies(node)) this.invalidatePageStylesCss();
     const t = performance.now();
     const svg = await this.buildSvg(node, cssW, cssH, layerMode ? bleed : null);
     profAdd("buildSvg", performance.now() - t);
@@ -157,9 +162,41 @@ export class DomRasterizer {
     this.pageStyles = styles;
   }
 
+  // What the rasterized subtree asks of the page's fonts: the families it names
+  // and the characters it renders. Both grow monotonically across frames, and
+  // growth is what invalidates the cached css, so a family or a script that
+  // only appears at frame 200 still gets its faces embedded from frame 200 on.
+  private fontUsage: FontUsage = { families: new Set(), codePoints: new Set() };
+
+  private recordFontFamilies(node: HTMLElement): boolean {
+    let grew = false;
+    const { families, codePoints } = this.fontUsage;
+
+    const note = (el: Element): void => {
+      for (const raw of getComputedStyle(el).fontFamily.split(",")) {
+        const name = normalizeFontFamily(raw);
+        if (name && !families.has(name)) {
+          families.add(name);
+          grew = true;
+        }
+      }
+    };
+    note(node);
+    for (const el of node.querySelectorAll("*")) note(el);
+
+    for (const ch of node.textContent ?? "") {
+      const cp = ch.codePointAt(0);
+      if (cp !== undefined && !codePoints.has(cp)) {
+        codePoints.add(cp);
+        grew = true;
+      }
+    }
+    return grew;
+  }
+
   async getPageStylesCss(): Promise<string> {
     if (!this.pageStylesCssPromise) {
-      const promise = collectAndInlinePageStyles();
+      const promise = collectAndInlinePageStyles(this.fontUsage);
       this.pageStylesCssPromise = promise;
       promise.catch(() => {
         if (this.pageStylesCssPromise === promise) {
@@ -177,6 +214,8 @@ export class DomRasterizer {
   // Drop all cached canvases and shared state. Call when the rasterizer is done.
   dispose(): void {
     this.entries.clear();
+    this.fontUsage.families.clear();
+    this.fontUsage.codePoints.clear();
     this.pageStylesCssPromise = null;
     dataUrlCache.clear();
     inlinedCssCache.clear();
@@ -411,7 +450,7 @@ async function loadSvgAsImage(
   }
 }
 
-async function collectAndInlinePageStyles(): Promise<string> {
+async function collectAndInlinePageStyles(usage: FontUsage): Promise<string> {
   const sheets: string[] = [];
 
   for (const sheet of Array.from(document.styleSheets)) {
@@ -431,9 +470,16 @@ async function collectAndInlinePageStyles(): Promise<string> {
 
   if (sheets.length === 0) return "";
 
+  // Before anything is fetched: drop the @font-face rules this scene cannot
+  // use. A page that loads a webfont hands us every face in its stylesheet,
+  // and each surviving one is base64-embedded into the data URL of every
+  // single frame, so an unpruned Google Fonts link costs about a megabyte per
+  // frame for fonts the composition never renders.
+  const joined = pruneUnusedFontFaces(sheets.join("\n"), usage);
+
   let combined: string;
   try {
-    combined = await embedUrlRefs(sheets.join("\n"), async (url) => {
+    combined = await embedUrlRefs(joined, async (url) => {
       // W3C namespace URIs are identifiers, not fetchable resources.
       if (url.startsWith("http://www.w3.org/")) return url;
       try {
@@ -447,7 +493,7 @@ async function collectAndInlinePageStyles(): Promise<string> {
     combined = await inlineCssUrls(combined);
   } catch (e) {
     console.warn("[html-in-canvas] URL embedding failed", e);
-    combined = sheets.join("\n");
+    combined = joined;
   }
 
   const pseudoRules = rewritePseudoClasses(combined);
@@ -481,6 +527,131 @@ a.pseudo-focus-visible { outline-offset: 1px; }
     }
 }
 `;
+
+// What a scene needs from the page's fonts.
+export interface FontUsage {
+  // Families named by the subtree, normalized by normalizeFontFamily.
+  families: Set<string>;
+  // Code points the subtree renders, for matching against unicode-range.
+  codePoints: Set<number>;
+}
+
+// A CSS font-family token reduced to a comparable key: unquoted, unpadded,
+// lowercased. Generic keywords survive as themselves and simply never match an
+// @font-face family, which is what we want.
+export function normalizeFontFamily(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+// Parse a unicode-range descriptor into inclusive [start, end] pairs.
+// Handles the three forms in the spec: U+26, U+0-7F, and the wildcard U+4??.
+// Returns null when the descriptor is absent or unparseable, meaning "assume
+// this face covers everything".
+export function parseUnicodeRange(text: string): Array<[number, number]> | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const ranges: Array<[number, number]> = [];
+  for (const rawToken of trimmed.split(",")) {
+    const token = rawToken.trim();
+    if (!/^[uU]\+/.test(token)) return null;
+    const body = token.slice(2);
+
+    if (body.includes("-")) {
+      const [lo, hi] = body.split("-");
+      const start = Number.parseInt(lo ?? "", 16);
+      const end = Number.parseInt(hi ?? "", 16);
+      if (Number.isNaN(start) || Number.isNaN(end)) return null;
+      ranges.push([start, end]);
+    } else if (body.includes("?")) {
+      const start = Number.parseInt(body.replace(/\?/g, "0"), 16);
+      const end = Number.parseInt(body.replace(/\?/g, "F"), 16);
+      if (Number.isNaN(start) || Number.isNaN(end)) return null;
+      ranges.push([start, end]);
+    } else {
+      const cp = Number.parseInt(body, 16);
+      if (Number.isNaN(cp)) return null;
+      ranges.push([cp, cp]);
+    }
+  }
+  return ranges.length ? ranges : null;
+}
+
+// Drop every @font-face the scene cannot use: wrong family, or a unicode-range
+// that covers none of the characters it renders. Rules are kept verbatim when
+// anything is unreadable or unparseable, so the failure mode is "embed too
+// much" rather than "lose a font".
+export function pruneUnusedFontFaces(cssText: string, usage: FontUsage): string {
+  if (!cssText.includes("@font-face")) return cssText;
+
+  let sheet: CSSStyleSheet;
+  try {
+    sheet = new CSSStyleSheet();
+    sheet.replaceSync(cssText);
+  } catch {
+    return cssText;
+  }
+
+  const covers = (ranges: Array<[number, number]>): boolean => {
+    for (const cp of usage.codePoints) {
+      for (const [start, end] of ranges) {
+        if (cp >= start && cp <= end) return true;
+      }
+    }
+    return false;
+  };
+
+  let dropped = 0;
+  const keep = (rules: CSSRuleList): string[] => {
+    const out: string[] = [];
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      if (!rule) continue;
+      if (isFontFaceRule(rule)) {
+        const family = normalizeFontFamily(rule.style.getPropertyValue("font-family"));
+        if (family && !usage.families.has(family)) {
+          dropped += 1;
+          continue;
+        }
+        const ranges = parseUnicodeRange(rule.style.getPropertyValue("unicode-range"));
+        if (ranges && !covers(ranges)) {
+          dropped += 1;
+          continue;
+        }
+        out.push(rule.cssText);
+      } else if (typeof CSSStyleRule !== "undefined" && rule instanceof CSSStyleRule) {
+        // Must precede the grouping branch: CSS nesting made CSSStyleRule a
+        // CSSGroupingRule, so a plain rule also answers to `cssRules` and would
+        // otherwise be rebuilt as an empty block. Its cssText already carries
+        // any nested rules.
+        out.push(rule.cssText);
+      } else if ("cssRules" in rule) {
+        // @media / @supports can wrap font faces; recurse and rebuild the
+        // wrapper only when something inside it survives.
+        const group = rule as CSSGroupingRule;
+        const inner = keep(group.cssRules);
+        if (inner.length) {
+          const head = rule.cssText.slice(0, rule.cssText.indexOf("{")).trim();
+          out.push(`${head} {\n${inner.join("\n")}\n}`);
+        }
+      } else {
+        out.push(rule.cssText);
+      }
+    }
+    return out;
+  };
+
+  const rebuilt = keep(sheet.cssRules);
+  return dropped === 0 ? cssText : rebuilt.join("\n");
+}
+
+function isFontFaceRule(rule: CSSRule): rule is CSSFontFaceRule {
+  return typeof CSSFontFaceRule !== "undefined" && rule instanceof CSSFontFaceRule;
+}
 
 const PSEUDO_RE = /:(?:hover|focus-visible|focus-within|focus(?!-)|active)\b/g;
 const PSEUDO_RE_TEST = /:(?:hover|focus-visible|focus-within|focus(?!-)|active)\b/;
