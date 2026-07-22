@@ -1,26 +1,29 @@
 // The preview shell: a live <w-composition>, a scrub timeline built from the
 // scene's own structure, and in-browser MP4 export.
 //
-// This is a transport written for authoring rather than for watching. The
-// chapter strip is a projection of the `label` attributes on your top-level
-// <w-sequence> beats, and the lane beneath the track is the <w-audio> clips,
-// both read straight off the composition. Nothing here is a track list you
-// have to keep in sync; edit the scene and the timeline follows.
+// The timeline is a projection of the scene, not a track list you maintain.
+// The chapter strip is the `label` on your top-level <w-sequence> beats and the
+// lane beneath it is your <w-audio> clips, both read off the composition, so
+// they follow whatever you edit.
 //
 // You normally never need to touch this file. Author your video in
 // src/scene.js.
 import "@superhq/webmotion/elements";
 
 const BITRATE = 8_000_000;
+const MAX_STAGE_WIDTH = 1180;
+const STAGE_PAD = 24;
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const basename = (src) => src.split("/").pop().split("?")[0];
 
 function timecode(frame, fps) {
   const total = frame / fps;
-  const m = Math.floor(total / 60);
-  const s = Math.floor(total % 60);
-  return `${m}:${String(s).padStart(2, "0")}.${String(frame % fps).padStart(2, "0")}`;
+  return (
+    `${Math.floor(total / 60)}:` +
+    `${String(Math.floor(total % 60)).padStart(2, "0")}.` +
+    `${String(frame % fps).padStart(2, "0")}`
+  );
 }
 
 function buildComposition(config, scene) {
@@ -44,35 +47,31 @@ export function mountPlayer(mountEl, config, scene) {
 
   mountEl.innerHTML = `
     <header class="bar">
-      <div class="brand">
+      <span class="brand">
         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
           <path d="M4.5 20L7.5 4M10.5 20L13.5 4M16.5 20L19.5 4"
                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
         </svg>
-        <span>WebMotion</span>
-      </div>
+        WebMotion
+      </span>
       <span class="spec"></span>
-      <div class="actions">
-        <span class="status"></span>
-        <button class="export-btn">Export MP4</button>
-      </div>
+      <span class="status"></span>
+      <button class="export-btn">Export MP4</button>
     </header>
-
-    <div class="progress" hidden><span></span></div>
 
     <div class="stage"><div class="frame"></div></div>
 
-    <div class="timeline">
-      <div class="chapters"></div>
-      <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
-           aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
-        <div class="track-line"></div>
-        <div class="track-played"></div>
-        <div class="track-marks"></div>
-        <div class="track-head"></div>
-      </div>
-      <div class="lane"></div>
+    <div class="chapters"></div>
+
+    <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
+         aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
+      <div class="played"></div>
+      <div class="encoded" hidden></div>
+      <div class="marks"></div>
+      <div class="knob"></div>
     </div>
+
+    <div class="lane"></div>
 
     <div class="controls">
       <button class="play" aria-label="Play or pause">
@@ -83,19 +82,19 @@ export function mountPlayer(mountEl, config, scene) {
           <path fill="currentColor" d="M2 1.5h2.6v9H2zM7.4 1.5H10v9H7.4z"/>
         </svg>
       </button>
-      <span class="time"></span>
-      <span class="frames"></span>
-      <span class="chapter-now"></span>
       <button class="mute" aria-label="Toggle sound">
-        <svg class="i-muted" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-          <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.5 6.5l3 3m0-3-3 3"/>
-        </svg>
-        <svg class="i-sound off" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+        <svg class="i-sound" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
           <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
                 d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.3 5.8a3 3 0 0 1 0 4.4M12.4 4a5.6 5.6 0 0 1 0 8"/>
         </svg>
+        <svg class="i-muted off" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.5 6.5l3 3m0-3-3 3"/>
+        </svg>
       </button>
+      <span class="time"></span>
+      <span class="beat"></span>
+      <span class="frames"></span>
       <button class="full" aria-label="Fullscreen">
         <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
           <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
@@ -109,39 +108,55 @@ export function mountPlayer(mountEl, config, scene) {
 
   const $ = (sel) => mountEl.querySelector(sel);
   const stage = $(".stage");
+  const frame = $(".frame");
   const track = $(".track");
-  const played = $(".track-played");
-  const head = $(".track-head");
-  const marks = $(".track-marks");
+  const played = $(".played");
+  const encoded = $(".encoded");
+  const knob = $(".knob");
+  const marks = $(".marks");
   const chapters = $(".chapters");
   const lane = $(".lane");
   const playBtn = $(".play");
   const muteBtn = $(".mute");
-  const timeEl = $(".time");
-  const framesEl = $(".frames");
-  const chapterNow = $(".chapter-now");
   const exportBtn = $(".export-btn");
   const status = $(".status");
-  const progress = $(".progress");
-  const progressFill = $(".progress span");
   const result = $(".result");
 
   $(".spec").textContent =
     `${config.width} × ${config.height} · ${fps} fps · ${duration} frames · ` +
     `${(duration / fps).toFixed(1)}s`;
-
-  $(".frame").appendChild(comp);
+  frame.appendChild(comp);
 
   let disposed = false;
   let objectUrl = null;
   let encoding = false;
   let sections = [];
 
-  /* Timeline, drawn from the scene ---------------------------------------- */
+  /* Fit ------------------------------------------------------------------- */
+
+  // Sized here rather than in css. The composition writes its own height from
+  // whatever width it is given, so a max-height on the wrapper does not hold it
+  // back: the only reliable lever is the width, worked out from the space that
+  // is actually left.
+  const ratio = config.width / config.height;
+
+  function fit() {
+    const box = stage.getBoundingClientRect();
+    const availW = Math.max(80, box.width - STAGE_PAD * 2);
+    const availH = Math.max(60, box.height - STAGE_PAD * 2);
+    let w = Math.min(availW, MAX_STAGE_WIDTH);
+    if (w / ratio > availH) w = availH * ratio;
+    frame.style.width = `${Math.floor(w)}px`;
+  }
+
+  const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+  ro?.observe(stage);
+  addEventListener("resize", fit);
+  fit();
+
+  /* Timeline, drawn from the scene ----------------------------------------- */
 
   function drawTimeline() {
-    // Top-level labelled beats become the chapter strip; the scene is the
-    // single source of truth, so this survives any edit to it.
     sections = comp.sections().filter((s) => s.depth === 0);
     if (!sections.length && config.chapters?.length) {
       sections = config.chapters.map((c, i) => ({
@@ -151,8 +166,8 @@ export function mountPlayer(mountEl, config, scene) {
       }));
     }
 
-    chapters.innerHTML = "";
-    marks.innerHTML = "";
+    chapters.replaceChildren();
+    marks.replaceChildren();
     for (const s of sections) {
       const cell = document.createElement("button");
       cell.className = "chapter";
@@ -171,8 +186,8 @@ export function mountPlayer(mountEl, config, scene) {
     }
     chapters.hidden = sections.length === 0;
 
-    lane.innerHTML = "";
     const clips = comp.audioClips();
+    lane.replaceChildren();
     for (const clip of clips) {
       const to = Number.isFinite(clip.endFrame) ? clip.endFrame : duration;
       const bar = document.createElement("span");
@@ -185,34 +200,33 @@ export function mountPlayer(mountEl, config, scene) {
     lane.hidden = clips.length === 0;
   }
 
-  function paint(frame) {
-    played.style.width = `${pct(frame)}%`;
-    head.style.left = `${pct(frame)}%`;
-    timeEl.textContent = `${timecode(frame, fps)} / ${timecode(last, fps)}`;
-    framesEl.textContent = `frame ${String(frame).padStart(3, "0")} / ${last}`;
-    track.setAttribute("aria-valuenow", String(frame));
-    const here = sections.findLast?.((s) => frame >= s.from) ?? null;
-    chapterNow.textContent = here ? here.label : "";
+  function paint(f) {
+    played.style.width = `${pct(f)}%`;
+    knob.style.left = `${pct(f)}%`;
+    $(".time").textContent = `${timecode(f, fps)} / ${timecode(last, fps)}`;
+    $(".frames").textContent = `frame ${String(f).padStart(3, "0")} / ${last}`;
+    track.setAttribute("aria-valuenow", String(f));
+
+    let here = null;
+    for (const s of sections) if (f >= s.from) here = s;
+    $(".beat").textContent = here ? here.label : "";
     for (const [i, cell] of [...chapters.children].entries()) {
       cell.classList.toggle("on", sections[i] === here);
     }
   }
 
-  const seek = (frame) => comp.seek(clamp(Math.round(frame), 0, last));
+  // Icons swap by class: browsers do not honour the hidden attribute on
+  // elements in the svg namespace, so both glyphs would render at once.
+  function paintTransport() {
+    playBtn.querySelector(".i-play").classList.toggle("off", comp.playing);
+    playBtn.querySelector(".i-pause").classList.toggle("off", !comp.playing);
+    muteBtn.querySelector(".i-sound").classList.toggle("off", comp.muted);
+    muteBtn.querySelector(".i-muted").classList.toggle("off", !comp.muted);
+  }
+
+  const seek = (f) => comp.seek(clamp(Math.round(f), 0, last));
 
   comp.addEventListener("w-seek", (e) => paint(e.detail.frame));
-  // Toggled by class, not by the `hidden` attribute: browsers do not honour
-  // `hidden` on elements in the SVG namespace the way they do on HTML ones,
-  // so both glyphs render at once.
-  const showIcon = (el, on) => el.classList.toggle("off", !on);
-
-  const paintTransport = () => {
-    showIcon(playBtn.querySelector(".i-play"), !comp.playing);
-    showIcon(playBtn.querySelector(".i-pause"), comp.playing);
-    showIcon(muteBtn.querySelector(".i-sound"), !comp.muted);
-    showIcon(muteBtn.querySelector(".i-muted"), comp.muted);
-  };
-
   comp.addEventListener("w-play", paintTransport);
   comp.addEventListener("w-pause", paintTransport);
   comp.addEventListener("w-volumechange", paintTransport);
@@ -222,6 +236,7 @@ export function mountPlayer(mountEl, config, scene) {
     drawTimeline();
     paintTransport();
     paint(comp.currentFrame ?? 0);
+    fit();
   });
 
   /* Transport -------------------------------------------------------------- */
@@ -235,8 +250,8 @@ export function mountPlayer(mountEl, config, scene) {
     else stage.requestFullscreen?.();
   });
 
-  // Drag anywhere on the track. Pointer events are bound to the window, so a
-  // drag released outside the track still ends rather than latching on.
+  // Pointer handlers live on the window: a drag released off the track would
+  // otherwise never end, leaving every later hover seeking the film.
   let scrubbing = false;
   let resumeAfter = false;
 
@@ -249,6 +264,11 @@ export function mountPlayer(mountEl, config, scene) {
     scrubbing = false;
     if (resumeAfter && !encoding) comp.play();
   };
+  const onMove = (e) => {
+    if (!scrubbing) return;
+    if (e.buttons === 0) return endScrub();
+    seek(frameAt(e.clientX));
+  };
 
   track.addEventListener("pointerdown", (e) => {
     scrubbing = true;
@@ -257,16 +277,11 @@ export function mountPlayer(mountEl, config, scene) {
     seek(frameAt(e.clientX));
     e.preventDefault();
   });
-  addEventListener("pointermove", (e) => {
-    if (!scrubbing) return;
-    if (e.buttons === 0) return endScrub();
-    seek(frameAt(e.clientX));
-  });
+  addEventListener("pointermove", onMove);
   addEventListener("pointerup", endScrub);
   addEventListener("pointercancel", endScrub);
 
   const onKey = (e) => {
-    if (e.target instanceof HTMLInputElement) return;
     const step = e.shiftKey ? 10 : 1;
     if (e.key === " ") comp.playing ? comp.pause() : comp.play();
     else if (e.key === "ArrowRight") (comp.pause(), seek(comp.currentFrame + step));
@@ -280,7 +295,7 @@ export function mountPlayer(mountEl, config, scene) {
   };
   addEventListener("keydown", onKey);
 
-  /* Export ----------------------------------------------------------------- */
+  /* Export ------------------------------------------------------------------ */
 
   if (typeof VideoEncoder === "undefined") {
     exportBtn.disabled = true;
@@ -293,22 +308,22 @@ export function mountPlayer(mountEl, config, scene) {
     exportBtn.disabled = true;
     exportBtn.textContent = "Encoding";
     result.hidden = true;
-    progressFill.style.width = "0%";
-    progress.hidden = false;
+    encoded.style.width = "0%";
+    encoded.hidden = false;
 
     const startedAt = performance.now();
     const resumeFrame = comp.currentFrame ?? 0;
     try {
       const blob = await comp.export({
         bitrate: BITRATE,
-        onProgress: ({ frame, total }) => {
+        onProgress: ({ frame: f, total }) => {
           if (disposed) return;
-          progressFill.style.width = `${(frame / total) * 100}%`;
+          encoded.style.width = `${(f / total) * 100}%`;
           // The exporter drives frames itself and fires no w-seek, so move the
           // playhead from here rather than letting the two disagree.
-          paint(frame);
-          const rate = frame / ((performance.now() - startedAt) / 1000);
-          status.textContent = `${frame} / ${total} · ${Math.round(rate)} fps`;
+          paint(f);
+          const rate = f / ((performance.now() - startedAt) / 1000);
+          status.textContent = `${f} / ${total} · ${Math.round(rate)} fps`;
         },
       });
       if (disposed) return;
@@ -337,7 +352,7 @@ export function mountPlayer(mountEl, config, scene) {
       encoding = false;
       if (!disposed) {
         comp.seek(resumeFrame);
-        progress.hidden = true;
+        encoded.hidden = true;
         exportBtn.disabled = false;
         exportBtn.textContent = "Export MP4";
       }
@@ -348,10 +363,12 @@ export function mountPlayer(mountEl, config, scene) {
     destroy() {
       disposed = true;
       comp.pause();
-      removeEventListener("keydown", onKey);
-      removeEventListener("pointermove", endScrub);
+      ro?.disconnect();
+      removeEventListener("resize", fit);
+      removeEventListener("pointermove", onMove);
       removeEventListener("pointerup", endScrub);
       removeEventListener("pointercancel", endScrub);
+      removeEventListener("keydown", onKey);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       mountEl.innerHTML = "";
     },

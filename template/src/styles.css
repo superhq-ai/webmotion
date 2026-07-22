@@ -1,9 +1,9 @@
-/* The starter's shell. Dark, hairline-ruled, no shadows: the point is that the
-   frame you are authoring is the brightest thing on screen.
+/* The starter's shell: the hero player from webmotion.superhq.ai, with a
+   chapter strip and an audio lane added for authoring.
 
-   <w-player> is themed through its own custom properties rather than
-   overridden, so it keeps its chapter rail, audio lane, zoom and keyboard
-   handling while matching the surface around it. */
+   Dark, hairline ruled, no shadows. The frame you are working on should be the
+   brightest thing on screen, and the chrome should read as a set of rules
+   rather than a set of widgets. */
 :root {
   --bg: #0f0f0f;
   --raised: #161616;
@@ -26,9 +26,7 @@
 
 body {
   margin: 0;
-  min-height: 100dvh;
   font-family: var(--font);
-  font-size: 15px;
   color: var(--ink-3);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -54,10 +52,17 @@ button {
   outline-offset: 3px;
 }
 
+.off {
+  display: none;
+}
+
+/* The shell is exactly the viewport: the stage takes whatever the rows around
+   it leave, and player.js sizes the composition into it. */
 .player {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  overflow: hidden;
 }
 
 /* Header ------------------------------------------------------------------ */
@@ -66,8 +71,8 @@ button {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 20px;
-  padding: 12px 18px;
+  gap: 18px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -84,27 +89,23 @@ button {
   color: var(--accent);
 }
 
-.spec {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-left: auto;
-}
-
+.spec,
 .status {
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
+}
+.spec {
+  text-transform: uppercase;
+}
+.status {
+  margin-left: auto;
   color: var(--ink-3);
+}
+.status:empty {
+  margin-left: auto;
 }
 
 .export-btn {
@@ -124,23 +125,6 @@ button {
   cursor: default;
 }
 
-/* A hairline that fills as the encoder works, under the header. */
-.progress {
-  flex: none;
-  height: 2px;
-  background: var(--line);
-}
-.progress[hidden] {
-  display: none;
-}
-.progress span {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: var(--accent);
-  transition: width 0.15s linear;
-}
-
 /* Stage ------------------------------------------------------------------- */
 
 .stage {
@@ -148,30 +132,26 @@ button {
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: 28px;
   background: #0b0b0b;
 }
 
 .frame {
-  width: 100%;
-  max-width: 1100px;
   border: 1px solid var(--line);
   line-height: 0;
+}
+.frame w-composition {
+  display: block;
+  width: 100%;
 }
 
 /* Timeline ---------------------------------------------------------------- */
 
-.timeline {
-  flex: none;
-  padding: 0 18px;
-  border-top: 1px solid var(--line);
-}
-
-/* Chapters, straight off the `label` on your top-level <w-sequence> beats. */
+/* Chapters, straight off `label` on your top-level <w-sequence> beats. */
 .chapters {
   position: relative;
-  height: 22px;
-  margin-top: 10px;
+  flex: none;
+  height: 20px;
+  border-top: 1px solid var(--line);
 }
 .chapters[hidden] {
   display: none;
@@ -181,11 +161,12 @@ button {
   position: absolute;
   top: 0;
   height: 100%;
-  padding: 0 8px;
-  border-left: 1px solid var(--line-hi);
+  padding: 0 7px;
+  border-left: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  line-height: 20px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   text-align: left;
   white-space: nowrap;
@@ -201,62 +182,65 @@ button {
   border-left-color: var(--ink-2);
 }
 
-/* The track. A hairline until you reach for it. */
+/* The scrub track is the divider, and doubles as the encode bar. */
 .track {
   position: relative;
-  height: 18px;
+  flex: none;
+  height: 16px;
   cursor: ew-resize;
   touch-action: none;
   user-select: none;
+  border-top: 1px solid var(--line);
 }
 
-.track-line,
-.track-played {
+.played,
+.encoded {
   position: absolute;
   top: 50%;
-  height: 1px;
-  transform: translateY(-50%);
-  transition: height 0.15s;
-}
-.track-line {
-  left: 0;
-  right: 0;
-  background: var(--line-hi);
-}
-.track-played {
   left: 0;
   width: 0;
-  background: var(--ink-2);
+  transform: translateY(-50%);
 }
-.track:hover .track-line,
-.track:hover .track-played {
+.played {
+  height: 1px;
+  background: var(--line-hi);
+  transition: height 0.15s;
+}
+.track:hover .played {
   height: 3px;
 }
+.encoded {
+  height: 3px;
+  background: var(--accent);
+}
+.encoded[hidden] {
+  display: none;
+}
 
-.track-marks i {
+.marks i {
   position: absolute;
   top: 50%;
   width: 1px;
-  height: 8px;
+  height: 7px;
   transform: translateY(-50%);
   background: var(--line-hi);
 }
 
-.track-head {
+.knob {
   position: absolute;
   top: 50%;
   left: 0;
-  width: 2px;
-  height: 14px;
+  width: 1px;
+  height: 13px;
   transform: translate(-50%, -50%);
-  background: var(--accent);
+  background: var(--ink-2);
 }
 
-/* One block per <w-audio> clip, on the timeline it actually occupies. */
+/* One block per <w-audio> clip, on the span it occupies. */
 .lane {
   position: relative;
-  height: 16px;
-  margin-bottom: 8px;
+  flex: none;
+  height: 15px;
 }
 .lane[hidden] {
   display: none;
@@ -264,7 +248,7 @@ button {
 
 .clip {
   position: absolute;
-  top: 0;
+  top: 1px;
   height: 12px;
   padding: 0 5px;
   border-radius: 2px;
@@ -281,11 +265,11 @@ button {
 /* Controls ---------------------------------------------------------------- */
 
 .controls {
-  flex: none;
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 16px;
-  padding: 10px 18px;
+  gap: 14px;
+  padding: 9px 16px;
   border-top: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 11px;
@@ -306,18 +290,18 @@ button {
     background 0.15s,
     color 0.15s;
 }
-.controls .off {
-  display: none;
-}
-
 .controls button:hover {
   background: var(--chip);
   color: var(--ink);
 }
 
-.chapter-now {
-  margin-left: auto;
+.beat {
   text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.frames {
+  margin-left: auto;
   color: var(--ink-4);
 }
 
@@ -328,7 +312,7 @@ button {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 18px;
+  padding: 9px 16px;
   border-top: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 11px;
