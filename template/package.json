@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@superhq/webmotion": "^0.7.0"
+    "@superhq/webmotion": "^0.16.0"
   },
   "devDependencies": {
     "vite": "^5.4.0"

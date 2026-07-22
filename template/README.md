@@ -9,7 +9,9 @@ npm install
 npm run dev
 ```
 
-The dev server opens a live preview built on `<w-player>`, WebMotion's standard transport: play/pause, a zoomable scrub timeline with section labels and an audio lane, volume and mute, fullscreen, keyboard control (space, arrows to step frames, `m`, `f`, `+`/`-`), and an **Export MP4** button.
+The dev server opens a live preview built on `<w-player>`, WebMotion's standard transport: play/pause, a zoomable scrub timeline with section labels and an audio lane, volume and mute, fullscreen, and keyboard control (space, arrows to step frames, `m`, `f`, `+`/`-`).
+
+**Export MP4** encodes the whole composition in the page and reports what your machine managed: frames, seconds, frames per second, and the multiple of realtime that represents. Nothing is uploaded and nothing is queued.
 
 ## Make it yours
 

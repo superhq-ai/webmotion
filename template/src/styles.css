@@ -1,17 +1,23 @@
+/* The starter's shell. Dark, hairline-ruled, no shadows: the point is that the
+   frame you are authoring is the brightest thing on screen.
+
+   <w-player> is themed through its own custom properties rather than
+   overridden, so it keeps its chapter rail, audio lane, zoom and keyboard
+   handling while matching the surface around it. */
 :root {
-  --bg: #ffffff;
-  --ink: #1d1d1f;
-  --muted: #6e6e73;
-  --faint: #86868b;
-  --line: rgba(0, 0, 0, 0.1);
-  --chip: #f0f0f2;
-  --chip-hover: #e8e8ea;
-  --chip-active: #e0e0e3;
-  --accent: #0071e3;
-  --radius-md: 10px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  --bg: #0f0f0f;
+  --raised: #161616;
+  --chip: #1c1c1c;
+  --chip-hi: #242424;
+  --line: #262626;
+  --line-hi: #424242;
+  --ink: #e1e1e1;
+  --ink-2: #a1a1a1;
+  --ink-3: #898989;
+  --ink-4: #5e5e5e;
+  --accent: #5b83ff;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 
 * {
@@ -20,11 +26,13 @@
 
 body {
   margin: 0;
+  min-height: 100dvh;
   font-family: var(--font);
-  color: var(--ink);
+  font-size: 15px;
+  color: var(--ink-3);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button {
@@ -36,93 +44,154 @@ button {
   cursor: pointer;
 }
 
-/* The player fills the viewport: a slim top bar, the stage, then the controls.
-   Flat surfaces divided by hairlines, no shadows. */
-.player {
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+::selection {
+  background: var(--ink);
+  color: var(--bg);
 }
 
-/* Top bar: brand left, export right. */
-.bar {
-  flex: none;
+:focus-visible {
+  outline: 1px solid var(--ink-2);
+  outline-offset: 3px;
+}
+
+.player {
   display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.bar {
+  display: flex;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 12px 20px;
+  gap: 20px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--line);
 }
+
 .brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: -0.01em;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
+.brand svg {
+  color: var(--accent);
+}
+
+.spec {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
 .actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  margin-left: auto;
 }
 
 .status {
-  font-size: 12.5px;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
-}
-.dl {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-.dl:hover {
-  text-decoration: underline;
+  color: var(--ink-3);
 }
 
 .export-btn {
-  padding: 6px 14px;
-  border-radius: 980px;
-  background: var(--ink);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 500;
-  transition: opacity 0.12s ease;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 3px;
+  background: var(--chip-hi);
+  font-size: 13px;
+  color: var(--ink);
+  transition: background 0.15s;
 }
-.export-btn:hover {
-  opacity: 0.85;
+.export-btn:hover:not(:disabled) {
+  background: var(--line-hi);
 }
 .export-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: default;
 }
 
-/* Stage + transport: the standard <w-player>, themed to the template.
-   Section labels, the audio lane, timeline zoom, volume, and keyboard control
-   all come from the element; only the colors live here. */
-w-player.stage {
+/* A hairline that fills as the encoder works, under the header. */
+.progress {
+  flex: none;
+  height: 2px;
+  background: var(--line);
+}
+.progress[hidden] {
+  display: none;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+
+/* Stage ------------------------------------------------------------------- */
+
+.stage {
   flex: 1;
-  min-height: 220px;
+  min-height: 0;
   --w-player-accent: var(--ink);
-  --w-player-accent-contrast: #fff;
+  --w-player-accent-contrast: #0f0f0f;
   --w-player-line: var(--line);
   --w-player-chip: var(--chip);
-  --w-player-chip-active: var(--chip-active);
-  --w-player-audio: rgba(0, 113, 227, 0.14);
-  --w-player-audio-line: rgba(0, 113, 227, 0.35);
+  --w-player-chip-active: var(--chip-hi);
+  --w-player-audio: #1c1c1c;
+  --w-player-audio-line: var(--line-hi);
+  --w-player-fullscreen-bg: #000;
+  color: var(--ink-2);
 }
-w-player.stage::part(viewport) {
+.stage::part(viewport) {
   padding: 24px;
 }
-w-player.stage::part(bar) {
-  padding: 12px 20px;
+.stage::part(bar) {
+  padding: 14px 20px;
+  background: var(--bg);
 }
+
 .stage-element {
-  border-radius: var(--radius-md);
   border: 1px solid var(--line);
-  overflow: hidden;
+  border-radius: 4px;
+}
+
+/* Export result ----------------------------------------------------------- */
+
+.result {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+}
+.result[hidden] {
+  display: none;
+}
+
+.dl {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.dl:hover {
+  color: #86a3ff;
 }
