@@ -75,6 +75,7 @@ button {
   display: flex;
   flex: none;
   align-items: center;
+  user-select: none;
   gap: 18px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
@@ -93,6 +94,46 @@ button {
   color: var(--accent);
 }
 
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.links a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-4);
+  transition: color 0.15s;
+}
+.links a:hover {
+  color: var(--ink);
+}
+
+.skill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.skill:hover {
+  border-color: var(--line-hi);
+  color: var(--ink);
+}
 
 /* Picture ----------------------------------------------------------------- */
 
@@ -118,12 +159,29 @@ button {
 
 /* Timeline ---------------------------------------------------------------- */
 
+/* The reel is wider than its container when zoomed; everything on it is
+   positioned in percentages, so the lanes stretch together. */
+.timeline {
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hi) transparent;
+}
+
+.reel {
+  min-width: 100%;
+}
+
 /* Chapters, straight off `label` on your top-level <w-sequence> beats. Drawn
    as slabs on a lane, the same object as the audio clips below the track, so
    the two lanes read as one timeline rather than as a band and a list. */
 .chapters {
   position: relative;
   flex: none;
+  height: 20px;
+  user-select: none;
   border-top: 1px solid var(--line);
 }
 .chapters[hidden] {
@@ -132,6 +190,7 @@ button {
 
 .chapter {
   position: absolute;
+  top: 3px;
   height: 14px;
   padding: 0 6px;
   border: 1px solid var(--line);
@@ -219,6 +278,8 @@ button {
 .lane {
   position: relative;
   flex: none;
+  height: 20px;
+  user-select: none;
 }
 .lane[hidden] {
   display: none;
@@ -228,6 +289,7 @@ button {
    different blocks reads as two unrelated widgets. */
 .clip {
   position: absolute;
+  top: 3px;
   height: 14px;
   padding: 0 6px;
   border: 1px solid var(--line);
@@ -248,6 +310,7 @@ button {
   display: flex;
   flex: none;
   align-items: center;
+  user-select: none;
   gap: 14px;
   padding: 9px 12px;
   border-top: 1px solid var(--line);
@@ -285,6 +348,21 @@ button {
   margin-left: auto;
   flex: none;
   color: var(--ink-4);
+}
+
+.zoom-level {
+  min-width: 34px;
+  text-align: center;
+  color: var(--ink-4);
+}
+
+.controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.controls button:disabled:hover {
+  background: none;
+  color: var(--ink-3);
 }
 
 .controls .export-btn {

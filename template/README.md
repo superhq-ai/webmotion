@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-The dev server opens a live preview with a scrub timeline drawn from the scene itself. The chapter strip is the `label` on your top-level `<w-sequence>` beats and the lane beneath it is your `<w-audio>` clips, so the timeline follows the scene rather than a track list you keep in sync. Drag the track anywhere, click a chapter to jump to it, or use the keyboard: space to play, arrows to step a frame (hold shift for ten), `home`/`end`, `m` to mute, `f` for fullscreen.
+The dev server opens a live preview with a scrub timeline drawn from the scene itself. The chapter strip is the `label` on your top-level `<w-sequence>` beats and the lane beneath it is your `<w-audio>` clips, so the timeline follows the scene rather than a track list you keep in sync. Drag the track anywhere, click a chapter to jump to it, or use the keyboard: space to play, arrows to step a frame (hold shift for ten), `home`/`end`, `m` to mute, `f` for fullscreen. Zoom the timeline with `+` and `-` (`0` resets), or hold ctrl/cmd and scroll over it; the reel follows the playhead once it leaves the window.
 
 **Export MP4** encodes the whole composition in the page and reports what your machine managed: frames, seconds, frames per second, and the multiple of realtime that represents. Nothing is uploaded and nothing is queued.
 

@@ -52,21 +52,42 @@ export function mountPlayer(mountEl, config, scene) {
         </svg>
         WebMotion
       </span>
+      <nav class="links">
+        <button class="skill" title="Copy: teach your coding agent this format">
+          <span>npx skills add superhq-ai/webmotion</span>
+          <svg class="i-copy" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="1.3"
+                  d="M5.5 5.5v-3h8v8h-3M2.5 5.5h8v8h-8z"/>
+          </svg>
+          <svg class="i-done off" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" d="M3 8.5 6.5 12 13 4.5"/>
+          </svg>
+        </button>
+        <a href="https://github.com/superhq-ai/webmotion/tree/main/docs"
+           target="_blank" rel="noreferrer">Docs</a>
+        <a href="https://github.com/superhq-ai/webmotion"
+           target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
     </header>
 
     <div class="frame"><div class="fit"></div></div>
 
-    <div class="chapters"></div>
+    <div class="timeline">
+      <div class="reel">
+        <div class="chapters"></div>
 
-    <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
-         aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
-      <div class="played"></div>
-      <div class="encoded" hidden></div>
-      <div class="marks"></div>
-      <div class="knob"></div>
+        <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
+             aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
+          <div class="played"></div>
+          <div class="encoded" hidden></div>
+          <div class="marks"></div>
+          <div class="knob"></div>
+        </div>
+
+        <div class="lane"></div>
+      </div>
     </div>
-
-    <div class="lane"></div>
 
     <div class="controls">
       <button class="play" aria-label="Play or pause">
@@ -89,6 +110,19 @@ export function mountPlayer(mountEl, config, scene) {
       </button>
       <span class="time"></span>
       <span class="readout"></span>
+      <button class="zoom-out" aria-label="Zoom the timeline out">
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                d="M3.5 8h9"/>
+        </svg>
+      </button>
+      <span class="zoom-level">1.0&times;</span>
+      <button class="zoom-in" aria-label="Zoom the timeline in">
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                d="M8 3.5v9M3.5 8h9"/>
+        </svg>
+      </button>
       <button class="full" aria-label="Fullscreen">
         <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
           <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
@@ -112,6 +146,8 @@ export function mountPlayer(mountEl, config, scene) {
   const marks = $(".marks");
   const chapters = $(".chapters");
   const lane = $(".lane");
+  const timeline = $(".timeline");
+  const reel = $(".reel");
   const playBtn = $(".play");
   const muteBtn = $(".mute");
   const exportBtn = $(".export-btn");
@@ -147,23 +183,13 @@ export function mountPlayer(mountEl, config, scene) {
 
   /* Timeline, drawn from the scene ----------------------------------------- */
 
-  // Beats are allowed to overlap: a scene commonly runs one out under the next.
-  // Two slabs on one row would just collide and read as a rendering fault, so
-  // each block takes the first row it fits on and the lane grows to suit. With
-  // nothing overlapping this is a single row, which is the usual case.
-  const ROW_H = 17;
-
-  function layoutRows(blocks, laneEl) {
-    const ends = [];
-    for (const b of blocks) {
-      let row = ends.findIndex((end) => b.from >= end);
-      if (row === -1) row = ends.push(b.to) - 1;
-      else ends[row] = b.to;
-      b.el.style.top = `${3 + row * ROW_H}px`;
-    }
-    laneEl.style.height = `${Math.max(1, ends.length) * ROW_H + 3}px`;
-  }
-
+  // Beats may overlap, because a scene commonly runs one out under the next.
+  // An editor stacks overlapping clips on rows to show which layer wins, and
+  // that ordering exists here too: sequences composite in document order, so a
+  // later beat paints over an earlier one. Rather than invent rows by packing
+  // blocks wherever they fit, which would imply an order nothing actually has,
+  // the slabs stay on one lane and later ones simply sit on top. What the lane
+  // shows is what the frame does.
   function drawTimeline() {
     sections = comp.sections().filter((s) => s.depth === 0);
     if (!sections.length && config.chapters?.length) {
@@ -186,8 +212,9 @@ export function mountPlayer(mountEl, config, scene) {
       cell.title = `${s.label} · frame ${s.from}`;
       cell.textContent = s.label;
       cell.addEventListener("click", () => seek(s.from));
+      cell.style.zIndex = String(chapterBlocks.length + 1);
       chapters.appendChild(cell);
-      chapterBlocks.push({ from: s.from, to: s.to, el: cell });
+      chapterBlocks.push(cell);
 
       if (s.from > 0) {
         const tick = document.createElement("i");
@@ -196,7 +223,6 @@ export function mountPlayer(mountEl, config, scene) {
       }
     }
     chapters.hidden = sections.length === 0;
-    layoutRows(chapterBlocks, chapters);
 
     const clips = comp.audioClips();
     lane.replaceChildren();
@@ -208,11 +234,11 @@ export function mountPlayer(mountEl, config, scene) {
       bar.style.left = `${(clip.startFrame / duration) * 100}%`;
       bar.style.width = `calc(${((to - clip.startFrame) / duration) * 100}% - 2px)`;
       bar.textContent = basename(clip.src);
+      bar.style.zIndex = String(clipBlocks.length + 1);
       lane.appendChild(bar);
-      clipBlocks.push({ from: clip.startFrame, to, el: bar });
+      clipBlocks.push(bar);
     }
     lane.hidden = clips.length === 0;
-    layoutRows(clipBlocks, lane);
   }
 
   function paint(f) {
@@ -221,6 +247,7 @@ export function mountPlayer(mountEl, config, scene) {
     $(".time").textContent = `${timecode(f, fps)} / ${timecode(last, fps)}`;
     $(".readout").textContent = `frame ${String(f).padStart(3, "0")} / ${last}`;
     track.setAttribute("aria-valuenow", String(f));
+    followPlayhead(f);
 
     // Which beat we are in is shown by the chapter strip lighting up; saying it
     // again in the control row would just be the same word twice.
@@ -242,6 +269,59 @@ export function mountPlayer(mountEl, config, scene) {
 
   const seek = (f) => comp.seek(clamp(Math.round(f), 0, last));
 
+  /* Zoom -------------------------------------------------------------------
+     The reel is simply made wider than its scroll container; every block on it
+     is positioned as a percentage, so they all stretch together and nothing
+     needs recomputing. */
+  const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8, 12];
+  let zoomIx = 0;
+
+  function applyZoom(keepFrame = comp.currentFrame ?? 0) {
+    const z = ZOOMS[zoomIx];
+    reel.style.width = `${z * 100}%`;
+    $(".zoom-level").textContent = `${z.toFixed(1)}×`;
+    $(".zoom-out").disabled = zoomIx === 0;
+    $(".zoom-in").disabled = zoomIx === ZOOMS.length - 1;
+    centreOn(keepFrame);
+  }
+
+  function centreOn(f) {
+    if (ZOOMS[zoomIx] === 1) {
+      timeline.scrollLeft = 0;
+      return;
+    }
+    const x = (f / last) * reel.offsetWidth;
+    const view = timeline.clientWidth;
+    timeline.scrollLeft = clamp(x - view / 2, 0, Math.max(0, reel.offsetWidth - view));
+  }
+
+  // Follow the playhead only once it has left the window, so a deliberate
+  // scroll is not yanked back on the next frame.
+  function followPlayhead(f) {
+    if (ZOOMS[zoomIx] === 1) return;
+    const x = (f / last) * reel.offsetWidth;
+    const left = timeline.scrollLeft;
+    const right = left + timeline.clientWidth;
+    if (x < left + 24 || x > right - 24) centreOn(f);
+  }
+
+  const setZoom = (ix) => {
+    zoomIx = clamp(ix, 0, ZOOMS.length - 1);
+    applyZoom();
+  };
+
+  $(".zoom-in").addEventListener("click", () => setZoom(zoomIx + 1));
+  $(".zoom-out").addEventListener("click", () => setZoom(zoomIx - 1));
+
+  // Ctrl or cmd with the wheel zooms, the way an editor does; a plain wheel is
+  // left alone so the reel can still be scrolled.
+  const onWheel = (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    setZoom(zoomIx + (e.deltaY < 0 ? 1 : -1));
+  };
+  timeline.addEventListener("wheel", onWheel, { passive: false });
+
   comp.addEventListener("w-seek", (e) => paint(e.detail.frame));
   comp.addEventListener("w-play", paintTransport);
   comp.addEventListener("w-pause", paintTransport);
@@ -250,9 +330,33 @@ export function mountPlayer(mountEl, config, scene) {
   comp.ready.then(() => {
     if (disposed) return;
     drawTimeline();
+    applyZoom(0);
     paintTransport();
     paint(comp.currentFrame ?? 0);
     fit();
+  });
+
+  // The skill command copies on click, and selects itself if the clipboard is
+  // refused (an insecure context, a denied permission) so it is still one
+  // keystroke away rather than stuck behind a dead button.
+  const skillBtn = $(".skill");
+  const SKILL_CMD = "npx skills add superhq-ai/webmotion";
+  skillBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(SKILL_CMD);
+      skillBtn.querySelector(".i-copy").classList.add("off");
+      skillBtn.querySelector(".i-done").classList.remove("off");
+      setTimeout(() => {
+        skillBtn.querySelector(".i-copy").classList.remove("off");
+        skillBtn.querySelector(".i-done").classList.add("off");
+      }, 1400);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(skillBtn.querySelector("span"));
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
   });
 
   /* Transport -------------------------------------------------------------- */
@@ -311,6 +415,9 @@ export function mountPlayer(mountEl, config, scene) {
     else if (e.key === "ArrowLeft") (comp.pause(), seek(comp.currentFrame - step));
     else if (e.key === "Home") seek(0);
     else if (e.key === "End") seek(last);
+    else if (e.key === "+" || e.key === "=") setZoom(zoomIx + 1);
+    else if (e.key === "-") setZoom(zoomIx - 1);
+    else if (e.key === "0") setZoom(0);
     else if (e.key === "m") comp.muted = !comp.muted;
     else if (e.key === "f") $(".full").click();
     else return;
@@ -392,6 +499,7 @@ export function mountPlayer(mountEl, config, scene) {
       removeEventListener("pointercancel", endScrub);
       removeEventListener("keydown", onKey);
       document.removeEventListener("fullscreenchange", onFullscreen);
+      timeline.removeEventListener("wheel", onWheel);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       mountEl.innerHTML = "";
     },
