@@ -56,6 +56,10 @@ button {
   display: none;
 }
 
+.player:fullscreen {
+  background: var(--bg);
+}
+
 /* The shell is exactly the viewport: the stage takes whatever the rows around
    it leave, and player.js sizes the composition into it. */
 .player {
@@ -114,11 +118,12 @@ button {
 
 /* Timeline ---------------------------------------------------------------- */
 
-/* Chapters, straight off `label` on your top-level <w-sequence> beats. */
+/* Chapters, straight off `label` on your top-level <w-sequence> beats. Drawn
+   as slabs on a lane, the same object as the audio clips below the track, so
+   the two lanes read as one timeline rather than as a band and a list. */
 .chapters {
   position: relative;
   flex: none;
-  height: 20px;
   border-top: 1px solid var(--line);
 }
 .chapters[hidden] {
@@ -127,30 +132,33 @@ button {
 
 .chapter {
   position: absolute;
-  top: 0;
-  height: 100%;
-  padding: 0 7px;
-  border-left: 1px solid var(--line);
+  height: 14px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--chip);
   font-family: var(--mono);
-  font-size: 10px;
-  line-height: 20px;
+  font-size: 9px;
+  line-height: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   color: var(--ink-4);
-  transition: color 0.15s;
-}
-.chapter:first-child {
-  border-left: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 .chapter:hover {
+  border-color: var(--line-hi);
   color: var(--ink-2);
 }
 .chapter.on {
+  background: var(--chip-hi);
+  border-color: var(--line-hi);
   color: var(--ink);
-  border-left-color: var(--ink-2);
 }
 
 /* The scrub track is the divider, and doubles as the encode bar. */
@@ -211,23 +219,24 @@ button {
 .lane {
   position: relative;
   flex: none;
-  height: 15px;
 }
 .lane[hidden] {
   display: none;
 }
 
+/* Same slab as a chapter: one lane of blocks reads as a timeline, two lanes of
+   different blocks reads as two unrelated widgets. */
 .clip {
   position: absolute;
-  top: 1px;
-  height: 12px;
-  padding: 0 5px;
+  height: 14px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
   border-radius: 2px;
   background: var(--chip);
-  border: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 9px;
-  line-height: 10px;
+  line-height: 12px;
+  letter-spacing: 0.14em;
   white-space: nowrap;
   overflow: hidden;
   color: var(--ink-4);

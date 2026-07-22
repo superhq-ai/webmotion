@@ -147,6 +147,23 @@ export function mountPlayer(mountEl, config, scene) {
 
   /* Timeline, drawn from the scene ----------------------------------------- */
 
+  // Beats are allowed to overlap: a scene commonly runs one out under the next.
+  // Two slabs on one row would just collide and read as a rendering fault, so
+  // each block takes the first row it fits on and the lane grows to suit. With
+  // nothing overlapping this is a single row, which is the usual case.
+  const ROW_H = 17;
+
+  function layoutRows(blocks, laneEl) {
+    const ends = [];
+    for (const b of blocks) {
+      let row = ends.findIndex((end) => b.from >= end);
+      if (row === -1) row = ends.push(b.to) - 1;
+      else ends[row] = b.to;
+      b.el.style.top = `${3 + row * ROW_H}px`;
+    }
+    laneEl.style.height = `${Math.max(1, ends.length) * ROW_H + 3}px`;
+  }
+
   function drawTimeline() {
     sections = comp.sections().filter((s) => s.depth === 0);
     if (!sections.length && config.chapters?.length) {
@@ -159,15 +176,18 @@ export function mountPlayer(mountEl, config, scene) {
 
     chapters.replaceChildren();
     marks.replaceChildren();
+    const chapterBlocks = [];
     for (const s of sections) {
       const cell = document.createElement("button");
       cell.className = "chapter";
       cell.style.left = `${(s.from / duration) * 100}%`;
-      cell.style.width = `${((s.to - s.from) / duration) * 100}%`;
+      // Two pixels short of its span, so neighbouring slabs sit apart.
+      cell.style.width = `calc(${((s.to - s.from) / duration) * 100}% - 2px)`;
       cell.title = `${s.label} · frame ${s.from}`;
       cell.textContent = s.label;
       cell.addEventListener("click", () => seek(s.from));
       chapters.appendChild(cell);
+      chapterBlocks.push({ from: s.from, to: s.to, el: cell });
 
       if (s.from > 0) {
         const tick = document.createElement("i");
@@ -176,19 +196,23 @@ export function mountPlayer(mountEl, config, scene) {
       }
     }
     chapters.hidden = sections.length === 0;
+    layoutRows(chapterBlocks, chapters);
 
     const clips = comp.audioClips();
     lane.replaceChildren();
+    const clipBlocks = [];
     for (const clip of clips) {
       const to = Number.isFinite(clip.endFrame) ? clip.endFrame : duration;
       const bar = document.createElement("span");
       bar.className = "clip";
       bar.style.left = `${(clip.startFrame / duration) * 100}%`;
-      bar.style.width = `${((to - clip.startFrame) / duration) * 100}%`;
+      bar.style.width = `calc(${((to - clip.startFrame) / duration) * 100}% - 2px)`;
       bar.textContent = basename(clip.src);
       lane.appendChild(bar);
+      clipBlocks.push({ from: clip.startFrame, to, el: bar });
     }
     lane.hidden = clips.length === 0;
+    layoutRows(clipBlocks, lane);
   }
 
   function paint(f) {
@@ -237,10 +261,17 @@ export function mountPlayer(mountEl, config, scene) {
   muteBtn.addEventListener("click", () => {
     comp.muted = !comp.muted;
   });
+  // The whole player goes fullscreen, not just the picture. Fullscreening the
+  // frame alone leaves the timeline and the controls outside the fullscreen
+  // element, so they simply are not on screen to be used.
   $(".full").addEventListener("click", () => {
     if (document.fullscreenElement) document.exitFullscreen();
-    else frameEl.requestFullscreen?.();
+    else mountEl.requestFullscreen?.();
   });
+
+  // The picture has to be re-fitted on the way in and out.
+  const onFullscreen = () => requestAnimationFrame(fit);
+  document.addEventListener("fullscreenchange", onFullscreen);
 
   // Pointer handlers live on the window: a drag released off the track would
   // otherwise never end, leaving every later hover seeking the film.
@@ -360,6 +391,7 @@ export function mountPlayer(mountEl, config, scene) {
       removeEventListener("pointerup", endScrub);
       removeEventListener("pointercancel", endScrub);
       removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFullscreen);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       mountEl.innerHTML = "";
     },
