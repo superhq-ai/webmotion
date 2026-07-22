@@ -89,45 +89,35 @@ button {
   color: var(--accent);
 }
 
-.spec {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-4);
-}
 
-/* The card ---------------------------------------------------------------- */
+/* Picture ----------------------------------------------------------------- */
 
-/* Picture and chrome are one object. Every row below the frame is a hairline
-   apart from the next, and the border wraps the lot, so the controls read as
-   belonging to the composition rather than to the window. */
-.stage {
+/* The window is the player. The picture takes whatever the rows below it
+   leave, and player.js sizes the composition into that, so there is no card
+   floating in a gutter and no border between the work and the screen edge. */
+.frame {
   flex: 1;
   min-height: 0;
   display: grid;
   place-items: center;
   overflow: hidden;
-}
-
-.card {
-  border: 1px solid var(--line);
-  background: var(--bg);
-}
-
-.frame {
-  line-height: 0;
   background: #0b0b0b;
 }
-.frame w-composition {
+
+.fit {
+  line-height: 0;
+}
+.fit w-composition {
   display: block;
   width: 100%;
 }
 
+/* Timeline ---------------------------------------------------------------- */
+
 /* Chapters, straight off `label` on your top-level <w-sequence> beats. */
 .chapters {
   position: relative;
+  flex: none;
   height: 20px;
   border-top: 1px solid var(--line);
 }
@@ -166,6 +156,7 @@ button {
 /* The scrub track is the divider, and doubles as the encode bar. */
 .track {
   position: relative;
+  flex: none;
   height: 16px;
   cursor: ew-resize;
   touch-action: none;
@@ -219,6 +210,7 @@ button {
 /* One block per <w-audio> clip, on the span it occupies. */
 .lane {
   position: relative;
+  flex: none;
   height: 15px;
 }
 .lane[hidden] {
@@ -245,6 +237,7 @@ button {
 
 .controls {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 14px;
   padding: 9px 12px;
@@ -275,16 +268,8 @@ button {
 }
 
 .time,
-.beat,
 .readout {
   white-space: nowrap;
-}
-
-.beat {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  color: var(--ink-4);
 }
 
 .readout {
@@ -317,6 +302,7 @@ button {
 
 .result {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 16px;
   padding: 9px 12px;

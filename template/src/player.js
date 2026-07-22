@@ -11,8 +11,6 @@
 import "@superhq/webmotion/elements";
 
 const BITRATE = 8_000_000;
-const MAX_STAGE_WIDTH = 1180;
-const STAGE_PAD = 24;
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const basename = (src) => src.split("/").pop().split("?")[0];
@@ -54,64 +52,58 @@ export function mountPlayer(mountEl, config, scene) {
         </svg>
         WebMotion
       </span>
-      <span class="spec"></span>
     </header>
 
-    <div class="stage">
-      <div class="card">
-        <div class="frame"></div>
+    <div class="frame"><div class="fit"></div></div>
 
-        <div class="chapters"></div>
+    <div class="chapters"></div>
 
-        <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
-             aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
-          <div class="played"></div>
-          <div class="encoded" hidden></div>
-          <div class="marks"></div>
-          <div class="knob"></div>
-        </div>
-
-        <div class="lane"></div>
-
-        <div class="controls">
-          <button class="play" aria-label="Play or pause">
-            <svg class="i-play" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">
-              <path fill="currentColor" d="M3 1.5 10.5 6 3 10.5z"/>
-            </svg>
-            <svg class="i-pause off" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">
-              <path fill="currentColor" d="M2 1.5h2.6v9H2zM7.4 1.5H10v9H7.4z"/>
-            </svg>
-          </button>
-          <button class="mute" aria-label="Toggle sound">
-            <svg class="i-sound" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-              <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                    d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.3 5.8a3 3 0 0 1 0 4.4M12.4 4a5.6 5.6 0 0 1 0 8"/>
-            </svg>
-            <svg class="i-muted off" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-              <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                    d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.5 6.5l3 3m0-3-3 3"/>
-            </svg>
-          </button>
-          <span class="time"></span>
-          <span class="beat"></span>
-          <span class="readout"></span>
-          <button class="full" aria-label="Fullscreen">
-            <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-              <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                    d="M2 6V2.5h3.5M14 6V2.5h-3.5M2 10v3.5h3.5M14 10v3.5h-3.5"/>
-            </svg>
-          </button>
-          <button class="export-btn">Export MP4</button>
-        </div>
-
-        <div class="result" hidden></div>
-      </div>
+    <div class="track" role="slider" tabindex="0" aria-label="Scrub the composition"
+         aria-valuemin="0" aria-valuemax="${last}" aria-valuenow="0">
+      <div class="played"></div>
+      <div class="encoded" hidden></div>
+      <div class="marks"></div>
+      <div class="knob"></div>
     </div>
+
+    <div class="lane"></div>
+
+    <div class="controls">
+      <button class="play" aria-label="Play or pause">
+        <svg class="i-play" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">
+          <path fill="currentColor" d="M3 1.5 10.5 6 3 10.5z"/>
+        </svg>
+        <svg class="i-pause off" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">
+          <path fill="currentColor" d="M2 1.5h2.6v9H2zM7.4 1.5H10v9H7.4z"/>
+        </svg>
+      </button>
+      <button class="mute" aria-label="Toggle sound">
+        <svg class="i-sound" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.3 5.8a3 3 0 0 1 0 4.4M12.4 4a5.6 5.6 0 0 1 0 8"/>
+        </svg>
+        <svg class="i-muted off" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                d="M2.5 6h2l3-2.5v9L4.5 10h-2zM10.5 6.5l3 3m0-3-3 3"/>
+        </svg>
+      </button>
+      <span class="time"></span>
+      <span class="readout"></span>
+      <button class="full" aria-label="Fullscreen">
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                d="M2 6V2.5h3.5M14 6V2.5h-3.5M2 10v3.5h3.5M14 10v3.5h-3.5"/>
+        </svg>
+      </button>
+      <button class="export-btn">Export MP4</button>
+    </div>
+
+    <div class="result" hidden></div>
   `;
 
   const $ = (sel) => mountEl.querySelector(sel);
-  const stage = $(".stage");
-  const card = $(".card");
+  const frameEl = $(".frame");
+  const fitEl = $(".fit");
   const frame = $(".frame");
   const track = $(".track");
   const played = $(".played");
@@ -126,10 +118,7 @@ export function mountPlayer(mountEl, config, scene) {
   const readout = $(".readout");
   const result = $(".result");
 
-  $(".spec").textContent =
-    `${config.width} × ${config.height} · ${fps} fps · ${duration} frames · ` +
-    `${(duration / fps).toFixed(1)}s`;
-  frame.appendChild(comp);
+  fitEl.appendChild(comp);
 
   let disposed = false;
   let objectUrl = null;
@@ -145,24 +134,14 @@ export function mountPlayer(mountEl, config, scene) {
   const ratio = config.width / config.height;
 
   function fit() {
-    const box = stage.getBoundingClientRect();
-    const availW = Math.max(80, box.width - STAGE_PAD * 2);
-    const availH = Math.max(60, box.height - STAGE_PAD * 2);
-
-    // The card is picture plus chrome, so the chrome's height comes out of the
-    // budget before the picture gets its share. Measured rather than assumed,
-    // because the chapter strip and the audio lane are only there when the
-    // scene has beats and sound.
-    let chrome = 0;
-    for (const el of card.children) if (el !== frame) chrome += el.offsetHeight;
-
-    let w = Math.min(availW, MAX_STAGE_WIDTH);
-    if (w / ratio + chrome > availH) w = Math.max(160, availH - chrome) * ratio;
-    card.style.width = `${Math.floor(Math.min(w, availW))}px`;
+    const box = frameEl.getBoundingClientRect();
+    let w = box.width;
+    if (w / ratio > box.height) w = box.height * ratio;
+    fitEl.style.width = `${Math.floor(w)}px`;
   }
 
   const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
-  ro?.observe(stage);
+  ro?.observe(frameEl);
   addEventListener("resize", fit);
   fit();
 
@@ -219,9 +198,10 @@ export function mountPlayer(mountEl, config, scene) {
     $(".readout").textContent = `frame ${String(f).padStart(3, "0")} / ${last}`;
     track.setAttribute("aria-valuenow", String(f));
 
+    // Which beat we are in is shown by the chapter strip lighting up; saying it
+    // again in the control row would just be the same word twice.
     let here = null;
     for (const s of sections) if (f >= s.from) here = s;
-    $(".beat").textContent = here ? here.label : "";
     for (const [i, cell] of [...chapters.children].entries()) {
       cell.classList.toggle("on", sections[i] === here);
     }
@@ -259,7 +239,7 @@ export function mountPlayer(mountEl, config, scene) {
   });
   $(".full").addEventListener("click", () => {
     if (document.fullscreenElement) document.exitFullscreen();
-    else stage.requestFullscreen?.();
+    else frameEl.requestFullscreen?.();
   });
 
   // Pointer handlers live on the window: a drag released off the track would
