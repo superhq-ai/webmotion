@@ -1,0 +1,26 @@
+---
+// Shot to public/og.png with scripts/shoot-og.mjs. Not linked from anywhere and
+// marked noindex: it exists to be photographed, not read.
+import OgCard from "../components/OgCard.astro";
+import "../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>WebMotion link preview</title>
+    <meta name="robots" content="noindex" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap"
+    />
+    <style>
+      body { margin: 0; background: #000; }
+    </style>
+  </head>
+  <body>
+    <OgCard width={1200} height={630} />
+  </body>
+</html>

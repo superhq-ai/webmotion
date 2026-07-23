@@ -10,6 +10,9 @@ const fromSite = (p) => fileURLToPath(new URL(p, import.meta.url));
 const base = process.env.SITE_BASE ?? "/";
 
 export default defineConfig({
+  // Absolute URLs for the link preview tags. Scrapers reject a relative
+  // og:image, so this has to be a real origin rather than a path.
+  site: process.env.SITE_URL ?? "https://webmotion.superhq.ai",
   base,
   outDir: "./dist",
   // Scene assets are referenced with relative `assets/...` URLs, so pages stay

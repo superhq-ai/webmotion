@@ -50,6 +50,7 @@
     "demo": "npm run build && astro dev --root site",
     "demo:build": "npm run build && astro build --root site",
     "demo:preview": "astro preview --root site",
+    "og": "astro build --root site && node site/scripts/shoot-og.mjs",
     "bench": "npm run build && vite"
   },
   "keywords": [

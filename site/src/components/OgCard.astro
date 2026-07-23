@@ -1,0 +1,88 @@
+---
+// The link preview card. One source, two sizes: 1200x630 is what Open Graph
+// scrapers crop toward, 1280x640 is what GitHub asks for on a repository social
+// preview. They are close enough in shape to share a layout and far enough
+// apart that hand-maintaining two files would guarantee they drift.
+//
+// Built as a page rather than drawn in an image editor so it inherits the
+// report's own tokens and typefaces: the same Inter at weight 400 with open
+// tracking, the same greys, the same single accent. A card made in a design
+// tool goes stale the first time a colour changes here.
+//
+// Deliberately quiet. A preview is read at roughly a third of this size in a
+// feed, so it gets a name, a line, and one piece of evidence. Nothing else
+// survives the downscale.
+interface Props {
+  width: number;
+  height: number;
+}
+const { width, height } = Astro.props;
+
+const TITLE = "WebMotion";
+const SUB = "Browser-native, deterministic video composition";
+const CMD = "npx skills add superhq-ai/webmotion";
+const HOST = "webmotion.superhq.ai";
+
+// The scrub track under the hero player, reduced to its bones: chapter slabs
+// over a rule with the playhead parked partway. It is the one motif that says
+// "video timeline" without needing a screenshot of one.
+const SLABS = [12, 19, 15, 22, 16];
+const LIT = 2;
+---
+
+<div
+  id="og"
+  class="relative flex flex-col justify-between overflow-hidden bg-bg px-16 py-14"
+  style={`width:${width}px;height:${height}px`}
+>
+  <!-- A hairline inset from the edge, the way the report rules its columns. -->
+  <div class="pointer-events-none absolute inset-6 border border-line"></div>
+
+  <header class="relative flex items-baseline justify-between">
+    <div class="flex items-center gap-4">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" class="text-accent">
+        <path
+          d="M4.5 20L7.5 4M10.5 20L13.5 4M16.5 20L19.5 4"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          fill="none"></path>
+      </svg>
+      <span class="font-mono text-[0.8125rem] tracking-[0.2em] text-ink-3 uppercase">WebMotion</span>
+    </div>
+    <span class="font-mono text-[0.8125rem] tracking-[0.12em] text-ink-4">{HOST}</span>
+  </header>
+
+  <div class="relative">
+    <!-- Light weight, open tracking. Nothing on this site is bold, and a preview
+         card is the easiest place to break that by reflex. -->
+    <h1 class="font-sans text-[5.5rem] leading-none font-normal tracking-[0.045em] text-ink">
+      {TITLE}
+    </h1>
+    <p class="mt-7 max-w-[42rem] font-sans text-[1.75rem] leading-snug text-ink-2">{SUB}</p>
+  </div>
+
+  <footer class="relative">
+    <div class="flex items-end gap-[3px]">
+      {
+        SLABS.map((w, i) => (
+          <div
+            class:list={["h-[26px] border", i === LIT ? "border-line-hi bg-chip-hi" : "border-line"]}
+            style={`width:${w}%`}
+          />
+        ))
+      }
+    </div>
+    <div class="relative mt-[7px] h-px w-full bg-line">
+      <div class="absolute top-0 left-0 h-px w-[46%] bg-line-hi"></div>
+      <div class="absolute -top-[6px] left-[46%] h-[13px] w-px bg-ink-2"></div>
+    </div>
+
+    <div class="mt-8 flex items-baseline justify-between">
+      <code class="font-mono text-[1.0625rem] text-ink-3">{CMD}</code>
+      <span class="font-mono text-[0.8125rem] tracking-[0.16em] text-ink-4 uppercase">
+        frame <span class="text-accent">0137</span>
+      </span>
+    </div>
+  </footer>
+</div>
