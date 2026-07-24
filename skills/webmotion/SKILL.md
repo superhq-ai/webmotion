@@ -70,6 +70,7 @@ Import once, then the scene is markup:
 | `<w-text>` | `x` `y` `width` `height` `opacity` `text` `font` `color` `align` | Text from child text nodes (preferred) or the `text` attribute. |
 | `<w-rect>` | `x` `y` `width` `height` `opacity` `fill` (any CSS background) `radius` | Rectangle / gradient / image panel. |
 | `<w-el>` | `x` `y` `width` `height` `opacity` | Generic entity; put arbitrary HTML inside. |
+| `<w-transition>` | `pattern` (`dither` `dissolve` `wipe` `iris`) `color` `cell` (px) `dir` `edge` `seed` `smooth` `delay` `enter` `hold` `exit` (frames) `easing` | Cut/dissolve/wipe/iris plate on one live canvas. `amount` 0->1 covers the box with `color` through the pattern; derive it from `enter`/`hold`/`exit` (or drive `<w-animate property="amount">`). Place at the top level so it becomes its own layer. Full spec: docs/TRANSITIONS.md. |
 | `<w-animate>` | `property` `from` `to` `start` `end` `easing` | One tween. As a child of an entity it animates that entity. Renders nothing. |
 | `<w-defs>` / `<w-animation name>` | — / `name` | Named animation definitions (groups of `<w-animate>`), inert. |
 | `<w-audio>` | `src` `from` `duration` `offset` (frames into source) `gain` | A sound clip on the timeline, inert. Participates in sequence time like visuals; `gain` animates via `<w-animate property="gain">` (local frames, replaces the base attribute). Full spec: docs/AUDIO.md. |
@@ -199,6 +200,21 @@ See [references/recipes.md](references/recipes.md) for complete, launch-quality 
 
 Preview plays through a live `AudioContext` (frames pace off the audio clock); export mixes down sample-exact through an `OfflineAudioContext` and encodes AAC (Opus fallback) into the MP4. Sequences bound audio exactly like visuals.
 
+### Transitions (cut between scenes)
+
+Use `<w-transition>`, not a grid of fading cells. Sequence scene A to end where the plate is fully down and scene B to begin there; the transition covers, holds, and reveals over the seam:
+
+```html
+<w-sequence from="0"   duration="120"><!-- scene A --></w-sequence>
+<w-sequence from="100" duration="100"><!-- scene B --></w-sequence>
+<w-sequence from="100" duration="28">
+  <w-transition pattern="dissolve" cell="96" color="#0f0f0f"
+                x="0" y="0" width="1920" height="1080" enter="14" exit="14"></w-transition>
+</w-sequence>
+```
+
+`enter` covers (`amount` 0->1), `exit` reveals (1->0), `hold` waits between. Fine `pattern="dither"` with small `cell` is a true dither; large `cell` is chunky blocks; `color` is usually the background. It draws on one canvas captured on the GPU path, so it stays cheap at export where hundreds of animated cells would collapse the frame rate. Keep it a top-level entity (direct child of the stage or a `<w-sequence>`). Full spec: docs/TRANSITIONS.md.
+
 ## Checking your work
 
 You cannot see the video you just wrote. Do not hand a scene over without looking at it:
@@ -219,7 +235,8 @@ Both key their sampling off `label="..."` on top-level `<w-sequence>` beats, so 
 ## Pitfalls
 
 - Two tweens targeting the same property of the same element conflict across the whole timeline (clamped values still write; last one wins). For entrance + exit, put them on different nesting levels: wrapper `<w-el>` owns the exit, inner element owns the entrance. Opacity and transforms compose through nesting.
-- Anything time-based that isn't derived from the frame breaks determinism and export accuracy. CSS `transition`/`animation` on entities is the same trap: the exporter seeks frames faster than wall time, so transitions smear. Use `<w-animate>`.
+- Anything time-based that isn't derived from the frame breaks determinism and export accuracy. CSS `transition`/`animation` on entities is the same trap: the exporter seeks frames faster than wall time, so transitions smear. Use `<w-animate>`, and `<w-transition>` for scene cuts.
+- A dissolve or wipe built from many animated `<w-el>` cells previews fine but crawls at export (each cell re-serializes the frame). Use `<w-transition>`: one live-canvas layer, near-free at export.
 - Images in scenes must be same-origin (or CORS-readable); the rasterizer inlines them at export.
 - Custom webfonts: ensure they are loaded (`document.fonts.ready`) before export starts, or the first frames rasterize in the fallback face. The exporter only embeds the faces a scene actually uses (matching family, and `unicode-range` covering the characters it renders), so a page-wide font link costs nothing on a scene that does not use it; system font stacks are still the cheapest and safest.
 - `<w-sequence>` controls `display`; do not also set `display` on it.

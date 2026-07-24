@@ -198,6 +198,21 @@ describe("StageLayerPlanner", () => {
     planner.dispose();
   });
 
+  it("marks a node exposing wmLiveCanvas as a live layer", () => {
+    // The escape hatch <w-transition> and <w-model> ride: a live canvas is
+    // captured per frame rather than DOM-rasterized.
+    const stage = mount(`<div id="plain"></div><div id="live"></div>`);
+    const live = stage.querySelector("#live") as HTMLElement & { wmLiveCanvas?: () => unknown };
+    live.wmLiveCanvas = () => document.createElement("canvas");
+
+    const planner = new StageLayerPlanner(stage);
+    const plan = planner.planFrame();
+    const byId = new Map(plan?.layers.map((l) => [l.node.id, l.live]));
+    expect(byId.get("live")).toBe(true);
+    expect(byId.get("plain")).toBeUndefined();
+    planner.dispose();
+  });
+
   it("prefers captured compositor state over inline styles", () => {
     const stage = mount(`
       <div id="a">

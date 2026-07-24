@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebMotion transitions</title>
+    <style>
+      body { font-family: ui-monospace, Menlo, monospace; margin: 24px; background: #0b0b0d; color: #e8e8e6; }
+      h1 { font-size: 18px; font-weight: 600; }
+      p { color: #9a9a9a; max-width: 720px; line-height: 1.5; }
+      .holder { width: 900px; max-width: 100%; margin-top: 16px; }
+      button { font: inherit; margin-top: 14px; padding: 8px 14px; border-radius: 8px;
+               border: 1px solid #333; background: #17171a; color: #e8e8e6; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      /* Full-frame scene styling. */
+      .scene { display: flex; align-items: center; justify-content: center; }
+      .label { font-size: 150px; font-weight: 700; letter-spacing: -0.02em; color: #f4f4f5; }
+      .kind { position: absolute; left: 60px; bottom: 54px; font-size: 30px; letter-spacing: 0.12em;
+              text-transform: uppercase; color: rgba(255,255,255,0.5); }
+    </style>
+  </head>
+  <body>
+    <h1>&lt;w-transition&gt;</h1>
+    <p>
+      Five scenes, four cuts. Each cut is one <code>&lt;w-transition&gt;</code> at the top level:
+      a dither, a block dissolve, a wipe, and an iris. All four are a single live-canvas layer,
+      so this exports at full speed. See <code>docs/TRANSITIONS.md</code>.
+    </p>
+
+    <div class="holder">
+      <w-player>
+        <w-composition width="1600" height="900" fps="30" duration="416" background="#0b0b0d" autoplay loop>
+          <!-- Five full-frame scenes, each handing off under a plate. -->
+          <w-sequence from="0" duration="112" label="Dither">
+            <w-el class="scene" x="0" y="0" width="1600" height="900" style="background:#12223a">
+              <span class="label">1</span><span class="kind">dither</span>
+            </w-el>
+          </w-sequence>
+          <w-sequence from="96" duration="112" label="Dissolve">
+            <w-el class="scene" x="0" y="0" width="1600" height="900" style="background:#0f2e26">
+              <span class="label">2</span><span class="kind">dissolve</span>
+            </w-el>
+          </w-sequence>
+          <w-sequence from="192" duration="112" label="Wipe">
+            <w-el class="scene" x="0" y="0" width="1600" height="900" style="background:#33240f">
+              <span class="label">3</span><span class="kind">wipe</span>
+            </w-el>
+          </w-sequence>
+          <w-sequence from="288" duration="112" label="Iris">
+            <w-el class="scene" x="0" y="0" width="1600" height="900" style="background:#2a1233">
+              <span class="label">4</span><span class="kind">iris</span>
+            </w-el>
+          </w-sequence>
+          <w-sequence from="384" duration="32" label="End">
+            <w-el class="scene" x="0" y="0" width="1600" height="900" style="background:#101013">
+              <span class="label">5</span>
+            </w-el>
+          </w-sequence>
+
+          <!-- The four cuts. Each covers over `enter` frames, then reveals over
+               `exit`, centered on the scene boundary; the scene behind swaps
+               while the plate is fully down. -->
+          <w-sequence from="82" duration="28">
+            <w-transition pattern="dither" cell="9" color="#0b0b0d"
+                          x="0" y="0" width="1600" height="900" enter="14" exit="14"></w-transition>
+          </w-sequence>
+          <w-sequence from="178" duration="28">
+            <w-transition pattern="dissolve" cell="72" color="#0b0b0d"
+                          x="0" y="0" width="1600" height="900" enter="14" exit="14"></w-transition>
+          </w-sequence>
+          <w-sequence from="274" duration="28">
+            <w-transition pattern="wipe" dir="right" edge="0.15" color="#0b0b0d"
+                          x="0" y="0" width="1600" height="900" enter="14" exit="14"></w-transition>
+          </w-sequence>
+          <w-sequence from="370" duration="28">
+            <w-transition pattern="iris" dir="out" color="#0b0b0d"
+                          x="0" y="0" width="1600" height="900" enter="14" exit="14"></w-transition>
+          </w-sequence>
+        </w-composition>
+      </w-player>
+    </div>
+
+    <button id="export">Export MP4</button>
+
+    <script type="module">
+      import "@superhq/webmotion/elements";
+
+      const comp = document.querySelector("w-composition");
+      const button = document.getElementById("export");
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = "Encoding…";
+        try {
+          const blob = await comp.export();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "transitions.mp4";
+          a.click();
+          URL.revokeObjectURL(url);
+          button.textContent = "Export MP4";
+        } catch (err) {
+          console.error(err);
+          button.textContent = "Export failed (see console)";
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

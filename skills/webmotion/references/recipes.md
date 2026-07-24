@@ -121,6 +121,24 @@ A music bed under the whole film, faded out by envelope over the last ~40 frames
 
 Levels that sit well: loudness-normalized music around `gain` 0.8–0.9, effects 0.3–0.6. Use CC0/CC-BY sources and keep a credits file; trim and normalize clips offline (`ffmpeg -af loudnorm`) rather than shipping full-length tracks.
 
+## Dither / dissolve cut between scenes
+
+Hand one scene off to the next through a plate, rather than a plain crossfade. One `<w-transition>` at the top level covers the frame through a pattern, the scene behind swaps while it is opaque, then it reveals. Cheap at export because it is a single live-canvas layer, not hundreds of animated cells.
+
+```html
+<!-- Scene A ends under the plate; scene B starts under it. -->
+<w-sequence from="0"   duration="120"><!-- scene A --></w-sequence>
+<w-sequence from="100" duration="100"><!-- scene B --></w-sequence>
+
+<!-- The cut, centered on frame 107: cover over 14 frames, reveal over 14. -->
+<w-sequence from="100" duration="28">
+  <w-transition pattern="dissolve" cell="96" color="#0f0f0f"
+                x="0" y="0" width="1920" height="1080" enter="14" exit="14"></w-transition>
+</w-sequence>
+```
+
+Swap `pattern` for the shape: `dither` with a small `cell` (say `8`) for a true ordered dither, `wipe` with `dir` for a straight edge, `iris` for a circle. `color` is usually the composition background so the frame reads as dissolving into the backdrop. For a one-way dissolve-to-plate use `enter` alone; to reveal from a plate use `exit` alone. Keep it a direct child of the stage or a `<w-sequence>` (nested deeper it loses the fast path). Full spec: docs/TRANSITIONS.md.
+
 ## 3D product turntable
 
 The canonical product shot: model spinning on a turntable, studio look,

@@ -6,9 +6,17 @@
 // Everything renders as a pure function of frame and exports to MP4 through
 // the html-in-canvas backend.
 import { defineElements } from "./elements.js";
+import { defineTransitionElement } from "./transition.js";
 import { definePlayer } from "./player.js";
 
 export { defineElements, WComposition } from "./elements.js";
+export {
+  WTransition,
+  defineTransitionElement,
+  buildThreshold,
+  coverage,
+  type TransitionPattern,
+} from "./transition.js";
 export { WPlayer, definePlayer, type PlayableSource, type PlayerChapter } from "./player.js";
 export { PlaybackController, type PlaybackMedia } from "../playback/controller.js";
 export {
@@ -25,7 +33,10 @@ export { exportComposition, type ExportTarget, type ExportOptions } from "./expo
 export { parseProps, num, splitUnit, resolveEasing } from "./parse.js";
 
 // Auto register on import, the way A-Frame defines its elements on load.
+// <w-transition> registers after defineElements so its `extends WEntity` sees a
+// fully evaluated elements module (avoiding a circular-import dead zone).
 defineElements();
+defineTransitionElement();
 definePlayer();
 export { registerPropBehavior, WBehavior } from "./behavior.js";
 export type { PropBehaviorContext, PropBehaviorFactory, PropBehaviorInstance } from "./behavior.js";
