@@ -101,6 +101,8 @@ Prefer real DOM over canvas drawing? The `@superhq/webmotion/html-in-canvas` bac
 
 Need 3D? Install `three` and import `@superhq/webmotion/three` to get `<w-model>`: an animated glTF entity whose clips run on the frame clock, composited with everything above and exported deterministically. See [THREE.md](./docs/THREE.md).
 
+Got raw footage? Install `mp4box` and import `@superhq/webmotion/video` to get `<w-video>`: a video clip decoded frame-exact with WebCodecs, drawn on a live canvas, with its audio folded into the export mix. See [VIDEO.md](./docs/VIDEO.md).
+
 ## The site
 
 **Live: [webmotion.superhq.ai](https://webmotion.superhq.ai/)** - the hero there is a live

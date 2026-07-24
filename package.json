@@ -30,6 +30,10 @@
       "types": "./dist/three/index.d.ts",
       "import": "./dist/three/index.js"
     },
+    "./video": {
+      "types": "./dist/video/index.d.ts",
+      "import": "./dist/video/index.js"
+    },
     "./live": {
       "types": "./dist/live/index.d.ts",
       "import": "./dist/live/index.js"
@@ -69,6 +73,7 @@
     "@types/three": "^0.185.1",
     "astro": "^7.1.3",
     "happy-dom": "^20.10.6",
+    "mp4box": "^2.4.1",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.3",
     "three": "^0.185.1",
@@ -80,10 +85,14 @@
     "mp4-muxer": "^5.2.2"
   },
   "peerDependencies": {
+    "mp4box": ">=2.0.0",
     "playwright": ">=1.40.0",
     "three": ">=0.150.0"
   },
   "peerDependenciesMeta": {
+    "mp4box": {
+      "optional": true
+    },
     "playwright": {
       "optional": true
     },

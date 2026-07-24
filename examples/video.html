@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebMotion video</title>
+    <style>
+      body { font-family: ui-monospace, Menlo, monospace; margin: 24px; background: #0b0b0d; color: #e8e8e6; }
+      h1 { font-size: 18px; font-weight: 600; }
+      p { color: #9a9a9a; max-width: 720px; line-height: 1.5; }
+      .holder { width: 760px; max-width: 100%; margin-top: 16px; }
+      button { font: inherit; margin-top: 14px; padding: 8px 14px; border-radius: 8px;
+               border: 1px solid #333; background: #17171a; color: #e8e8e6; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .cap { position: absolute; left: 40px; bottom: 40px; font-size: 40px; font-weight: 600;
+             color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+    </style>
+  </head>
+  <body>
+    <h1>&lt;w-video&gt;</h1>
+    <p>
+      A raw video clip decoded with WebCodecs and drawn on a live canvas, frame-exact and
+      deterministic, its audio folded into the export mix. The clip fills the left, a title
+      slides over it, and it fades near the end. See <code>docs/VIDEO.md</code>.
+    </p>
+
+    <div class="holder">
+      <w-player>
+        <w-composition width="960" height="540" fps="30" duration="120" background="#0b0b0d" autoplay loop>
+          <!-- The clip, cover-fit into a 16:9 frame. Its own audio rides the mix. -->
+          <w-video src="assets/sample.mp4" fit="cover" volume="0.6"
+                   x="0" y="0" width="960" height="540">
+            <w-animate property="opacity" from="0" to="1" start="0" end="10" easing="easeOutCubic"></w-animate>
+            <w-animate property="opacity" from="1" to="0" start="104" end="120" easing="easeInOutSine"></w-animate>
+          </w-video>
+
+          <w-el class="cap" x="0" y="0" width="960" height="540">
+            <div>Shot on WebCodecs</div>
+            <w-animate property="x" from="-40" to="0" start="8" end="30" easing="easeOutCubic"></w-animate>
+            <w-animate property="opacity" from="0" to="1" start="8" end="24" easing="easeOutCubic"></w-animate>
+          </w-el>
+        </w-composition>
+      </w-player>
+    </div>
+
+    <button id="export">Export MP4</button>
+
+    <script type="module">
+      import "@superhq/webmotion/elements";
+      import "@superhq/webmotion/video";
+
+      const comp = document.querySelector("w-composition");
+      const button = document.getElementById("export");
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = "Encoding…";
+        try {
+          const blob = await comp.export();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "video-demo.mp4";
+          a.click();
+          URL.revokeObjectURL(url);
+          button.textContent = "Export MP4";
+        } catch (err) {
+          console.error(err);
+          button.textContent = "Export failed (see console)";
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

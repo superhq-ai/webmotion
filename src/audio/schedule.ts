@@ -69,6 +69,15 @@ function walk(
       continue;
     }
 
+    // A <w-video> carries its own audio track. It rides the same mix: its
+    // source URL decodes through decodeAudioData like any clip, so only the
+    // timing is read here (attribute-only, no coupling to the video module).
+    if (child.tagName === "W-VIDEO") {
+      const clip = readVideoClip(child, base, windowEnd, compEnd, fps);
+      if (clip) out.push(clip);
+      continue;
+    }
+
     walk(child, base, windowEnd, out, fps, compEnd);
   }
 }
@@ -95,6 +104,39 @@ function readClip(
     offsetFrames: num(el.getAttribute("offset"), 0),
     gain: num(el.getAttribute("gain"), 1),
     envelope: readEnvelope(el, base, startFrame, endFrame),
+  };
+}
+
+// A <w-video>'s audio: playback starts at `from` (sequence-local) with `trim`
+// seconds into the source, gained by `volume`, bounded by the enclosing
+// sequence window. `speed` and `loop` shape the picture but not the audio in
+// v1, which plays at natural rate from the in point. A muted clip contributes
+// nothing.
+function readVideoClip(
+  el: Element,
+  base: number,
+  windowEnd: number,
+  compEnd: number,
+  fps: number,
+): AudioClip | null {
+  const src = el.getAttribute("src");
+  if (!src) return null;
+  const muted = el.getAttribute("muted");
+  if (muted != null && muted !== "false") return null;
+  const gain = num(el.getAttribute("volume"), 1);
+  if (gain <= 0) return null;
+
+  const startFrame = base + num(el.getAttribute("from"), 0);
+  const endFrame = Math.min(windowEnd, compEnd);
+  if (endFrame <= startFrame) return null;
+
+  return {
+    src,
+    startFrame,
+    endFrame,
+    offsetFrames: Math.round(num(el.getAttribute("trim"), 0) * fps),
+    gain,
+    envelope: null,
   };
 }
 

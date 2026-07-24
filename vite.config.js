@@ -17,6 +17,7 @@ export default defineConfig({
       },
       { find: /^@superhq\/webmotion\/elements$/, replacement: fromRoot("./dist/elements/index.js") },
       { find: /^@superhq\/webmotion\/three$/, replacement: fromRoot("./dist/three/index.js") },
+      { find: /^@superhq\/webmotion\/video$/, replacement: fromRoot("./dist/video/index.js") },
       { find: /^@superhq\/webmotion\/live$/, replacement: fromRoot("./dist/live/index.js") },
       { find: /^@superhq\/webmotion$/, replacement: fromRoot("./dist/index.js") },
     ],

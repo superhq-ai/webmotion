@@ -169,6 +169,25 @@ between different `rotation` angles every 20-24 frames make a montage.
 Free models: Khronos glTF sample assets (credit CC-BY ones), Sketchfab
 downloadable GLBs (check license; compressed files decode automatically).
 
+## Video clip under a title
+
+Drop real footage into a cut with `<w-video>` (needs `npm install mp4box` and `import "@superhq/webmotion/video"`). Keep it a top-level entity so it composites as a live layer; `trim` picks the in point, the enclosing sequence bounds it, and its audio joins the mix. Fade it and slide a title over the top:
+
+```html
+<w-sequence from="0" duration="180">
+  <w-video src="assets/b-roll.mp4" fit="cover" trim="3" volume="0.7"
+           x="0" y="0" width="1920" height="1080">
+    <w-animate property="opacity" from="0" to="1" start="0" end="12" easing="easeOutCubic"></w-animate>
+    <w-animate property="opacity" from="1" to="0" start="164" end="180" easing="easeInOutSine"></w-animate>
+  </w-video>
+  <w-el x="120" y="820" width="1400" height="120">
+    <div class="lower-third" motion="fade-up">Reykjavík, 04:12</div>
+  </w-el>
+</w-sequence>
+```
+
+MP4 only, decoded frame-exact with WebCodecs, so it exports deterministically like the rest. `muted` drops the audio; `speed`/`loop` reshape the picture. Full spec: docs/VIDEO.md.
+
 ## End card
 
 ```html
