@@ -59,6 +59,11 @@ const RING = 8;
 // codec's presentation reorder depth (B-frames) before giving up to a flush.
 const REORDER = 16;
 
+// How many samples to keep in the decode queue so it always has input to emit
+// without a flush. Small, so the decode cursor never runs far ahead of the
+// target (which would evict it from the ring). Must stay below RING.
+const PRIME = 4;
+
 export class VideoSource {
   readonly width: number;
   readonly height: number;
@@ -76,6 +81,15 @@ export class VideoSource {
   private readonly outputs = new Map<number, VideoFrame>();
   private fedIndex = -1;
   private decodeError: unknown = null;
+  // The timestamp currently being resolved, protected from ring eviction so a
+  // burst of decoded frames cannot drop it before it is returned.
+  private wantedTs = -1;
+  // A flush drains held frames but leaves the decoder needing a keyframe before
+  // the next delta, so the following decode must restart from a keyframe.
+  private needsKeyframe = false;
+  // Resolved each time a frame is emitted, so the feed loop waits on real
+  // decoder progress rather than a blind timer.
+  private outputWaiters: Array<() => void> = [];
 
   private constructor(track: VideoTrackInfo, description: Uint8Array | undefined, samples: DemuxedSample[]) {
     this.width = track.width;
@@ -124,6 +138,9 @@ export class VideoSource {
       output: (frame) => this.onFrame(frame),
       error: (e) => {
         this.decodeError = e;
+        const waiters = this.outputWaiters;
+        this.outputWaiters = [];
+        for (const wake of waiters) wake();
       },
     });
     decoder.configure(this.config);
@@ -132,13 +149,29 @@ export class VideoSource {
 
   private onFrame(frame: VideoFrame): void {
     this.outputs.set(frame.timestamp, frame);
-    // Close the oldest frames once past the ring, freeing the decoder's pool.
+    // Close the oldest frames once past the ring, freeing the decoder's pool,
+    // but never the frame currently being resolved.
     while (this.outputs.size > RING) {
-      const oldest = this.outputs.keys().next().value as number;
-      const stale = this.outputs.get(oldest);
-      this.outputs.delete(oldest);
-      stale?.close();
+      let victim = -1;
+      for (const key of this.outputs.keys()) {
+        if (key !== this.wantedTs) {
+          victim = key;
+          break;
+        }
+      }
+      if (victim < 0) break;
+      this.outputs.get(victim)?.close();
+      this.outputs.delete(victim);
     }
+    const waiters = this.outputWaiters;
+    this.outputWaiters = [];
+    for (const wake of waiters) wake();
+  }
+
+  // Resolve when the decoder next emits a frame (or errors), so the feed loop
+  // advances on decoder progress rather than a timer.
+  private waitForOutput(): Promise<void> {
+    return new Promise((resolve) => this.outputWaiters.push(resolve));
   }
 
   /** The presentation timestamp (micros) of the sample shown at `tSec`. Stable
@@ -176,6 +209,9 @@ export class VideoSource {
     for (const frame of this.outputs.values()) frame.close();
     this.outputs.clear();
     this.fedIndex = gop - 1;
+    // A fresh configure clears the flush's keyframe debt; the next fed sample is
+    // the GOP's keyframe.
+    this.needsKeyframe = false;
   }
 
   /** The decoded frame shown at `tSec`. Owned by the source: draw it before the
@@ -183,39 +219,43 @@ export class VideoSource {
   async frameAtTime(tSec: number): Promise<VideoFrame | null> {
     if (this.decodeError) throw asError(this.decodeError);
     const { ts, di } = this.targetDecodeIndex(tSec);
+    this.wantedTs = ts;
     const cached = this.outputs.get(ts);
     if (cached) return cached;
 
     const gop = this.gopStart(di);
-    // Reset only when the target is behind the decode cursor or a keyframe gap
-    // sits between them; otherwise keep streaming forward. A flush would force
-    // outputs but leaves the decoder unable to continue with delta frames, so
-    // instead we feed forward and let the output callback deliver frames,
-    // flushing only to drain the tail at end of stream.
-    if (di <= this.fedIndex || gop > this.fedIndex + 1) this.resetTo(gop);
+    // Reset to a keyframe when the target is behind the cursor, a keyframe gap
+    // sits between them, or a prior flush left the decoder needing one.
+    // Otherwise keep streaming forward: mid-stream never flushes, so delta
+    // frames keep decoding and sequential playback stays cheap.
+    if (this.needsKeyframe || di <= this.fedIndex || gop > this.fedIndex + 1) {
+      this.resetTo(gop);
+    }
 
     const n = this.samples.length;
-    // Bounded lookahead past the target to cover the codec's reorder depth.
+    // Feed no further than the target plus a reorder margin: past this the
+    // decoder is holding the frame for input that will not come, so a flush
+    // forces it out (and the next decode restarts at a keyframe).
     const feedLimit = Math.min(n - 1, di + REORDER);
-    let guard = 0;
     while (!this.outputs.has(ts)) {
-      if (this.fedIndex < feedLimit) {
-        this.feed(this.fedIndex + 1);
+      // Keep the queue primed but shallow, so the cursor never runs far ahead
+      // of the target and the decoder always has input to emit.
+      if (this.fedIndex < feedLimit && this.decoder.decodeQueueSize < PRIME) {
         this.fedIndex += 1;
-      } else if (this.fedIndex >= n - 1) {
-        // Fed the whole stream; drain any frames the decoder still holds.
+        this.feed(this.fedIndex);
+        continue;
+      }
+      if (this.outputs.has(ts)) break;
+      if (this.fedIndex >= feedLimit && this.decoder.decodeQueueSize === 0) {
+        // Nothing left to feed for this target and the decoder is idle; drain
+        // any frames it is still holding.
         await this.decoder.flush();
-        break;
-      } else {
-        // Fed the lookahead window without the frame appearing (reorder deeper
-        // than expected); force it out. Rare; the next request may reset.
-        await this.decoder.flush();
+        this.needsKeyframe = true;
         break;
       }
-      // Yield so the decoder's output callback runs and fills `outputs`.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Wait for the decoder to emit, then re-check or feed more.
+      await this.waitForOutput();
       if (this.decodeError) throw asError(this.decodeError);
-      if (++guard > n + REORDER + 8) break;
     }
     return this.outputs.get(ts) ?? null;
   }
