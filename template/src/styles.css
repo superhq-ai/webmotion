@@ -3,21 +3,26 @@
 
    Dark, hairline ruled, no shadows. The frame you are working on should be the
    brightest thing on screen, and the chrome should read as a set of rules
-   rather than a set of widgets. */
+   rather than a set of widgets.
+
+   Every token here is prefixed --wm-. The chrome and your scene share one
+   document, and a scene's palette wants exactly the names chrome would
+   otherwise take (--ink, --bg, --accent). The prefix keeps the two apart, so
+   the shell stays legible no matter what your scene declares. */
 :root {
-  --bg: #0f0f0f;
-  --raised: #161616;
-  --chip: #1c1c1c;
-  --chip-hi: #242424;
-  --line: #262626;
-  --line-hi: #424242;
-  --ink: #e1e1e1;
-  --ink-2: #a1a1a1;
-  --ink-3: #898989;
-  --ink-4: #5e5e5e;
-  --accent: #5b83ff;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --wm-bg: #0f0f0f;
+  --wm-raised: #161616;
+  --wm-chip: #1c1c1c;
+  --wm-chip-hi: #242424;
+  --wm-line: #262626;
+  --wm-line-hi: #424242;
+  --wm-ink: #e1e1e1;
+  --wm-ink-2: #a1a1a1;
+  --wm-ink-3: #898989;
+  --wm-ink-4: #5e5e5e;
+  --wm-accent: #5b83ff;
+  --wm-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --wm-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 
 * {
@@ -26,9 +31,9 @@
 
 body {
   margin: 0;
-  font-family: var(--font);
-  color: var(--ink-3);
-  background: var(--bg);
+  font-family: var(--wm-font);
+  color: var(--wm-ink-3);
+  background: var(--wm-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -43,12 +48,12 @@ button {
 }
 
 ::selection {
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--wm-ink);
+  color: var(--wm-bg);
 }
 
 :focus-visible {
-  outline: 1px solid var(--ink-2);
+  outline: 1px solid var(--wm-ink-2);
   outline-offset: 3px;
 }
 
@@ -57,7 +62,7 @@ button {
 }
 
 .player:fullscreen {
-  background: var(--bg);
+  background: var(--wm-bg);
 }
 
 /* The shell is exactly the viewport: the stage takes whatever the rows around
@@ -78,7 +83,7 @@ button {
   user-select: none;
   gap: 18px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--wm-line);
 }
 
 .brand {
@@ -88,10 +93,10 @@ button {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.02em;
-  color: var(--ink);
+  color: var(--wm-ink);
 }
 .brand svg {
-  color: var(--accent);
+  color: var(--wm-accent);
 }
 
 
@@ -103,16 +108,16 @@ button {
 }
 
 .links a {
-  font-family: var(--mono);
+  font-family: var(--wm-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-decoration: none;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
   transition: color 0.15s;
 }
 .links a:hover {
-  color: var(--ink);
+  color: var(--wm-ink);
 }
 
 .skill {
@@ -121,18 +126,18 @@ button {
   gap: 8px;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--wm-line);
   border-radius: 3px;
-  font-family: var(--mono);
+  font-family: var(--wm-mono);
   font-size: 11px;
-  color: var(--ink-3);
+  color: var(--wm-ink-3);
   transition:
     border-color 0.15s,
     color 0.15s;
 }
 .skill:hover {
-  border-color: var(--line-hi);
-  color: var(--ink);
+  border-color: var(--wm-line-hi);
+  color: var(--wm-ink);
 }
 
 /* Picture ----------------------------------------------------------------- */
@@ -167,7 +172,7 @@ button {
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--line-hi) transparent;
+  scrollbar-color: var(--wm-line-hi) transparent;
 }
 
 .reel {
@@ -182,7 +187,7 @@ button {
   flex: none;
   height: 20px;
   user-select: none;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--wm-line);
 }
 .chapters[hidden] {
   display: none;
@@ -193,10 +198,10 @@ button {
   top: 3px;
   height: 14px;
   padding: 0 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--wm-line);
   border-radius: 2px;
-  background: var(--chip);
-  font-family: var(--mono);
+  background: var(--wm-chip);
+  font-family: var(--wm-mono);
   font-size: 9px;
   line-height: 12px;
   letter-spacing: 0.14em;
@@ -204,20 +209,20 @@ button {
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
   transition:
     background 0.15s,
     border-color 0.15s,
     color 0.15s;
 }
 .chapter:hover {
-  border-color: var(--line-hi);
-  color: var(--ink-2);
+  border-color: var(--wm-line-hi);
+  color: var(--wm-ink-2);
 }
 .chapter.on {
-  background: var(--chip-hi);
-  border-color: var(--line-hi);
-  color: var(--ink);
+  background: var(--wm-chip-hi);
+  border-color: var(--wm-line-hi);
+  color: var(--wm-ink);
 }
 
 /* The scrub track is the divider, and doubles as the encode bar. */
@@ -228,7 +233,7 @@ button {
   cursor: ew-resize;
   touch-action: none;
   user-select: none;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--wm-line);
 }
 
 .played,
@@ -241,7 +246,7 @@ button {
 }
 .played {
   height: 1px;
-  background: var(--line-hi);
+  background: var(--wm-line-hi);
   transition: height 0.15s;
 }
 .track:hover .played {
@@ -249,7 +254,7 @@ button {
 }
 .encoded {
   height: 3px;
-  background: var(--accent);
+  background: var(--wm-accent);
 }
 .encoded[hidden] {
   display: none;
@@ -261,7 +266,7 @@ button {
   width: 1px;
   height: 7px;
   transform: translateY(-50%);
-  background: var(--line-hi);
+  background: var(--wm-line-hi);
 }
 
 .knob {
@@ -271,7 +276,7 @@ button {
   width: 1px;
   height: 13px;
   transform: translate(-50%, -50%);
-  background: var(--ink-2);
+  background: var(--wm-ink-2);
 }
 
 /* One block per <w-audio> clip, on the span it occupies. */
@@ -292,16 +297,16 @@ button {
   top: 3px;
   height: 14px;
   padding: 0 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--wm-line);
   border-radius: 2px;
-  background: var(--chip);
-  font-family: var(--mono);
+  background: var(--wm-chip);
+  font-family: var(--wm-mono);
   font-size: 9px;
   line-height: 12px;
   letter-spacing: 0.14em;
   white-space: nowrap;
   overflow: hidden;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
 }
 
 /* Controls ---------------------------------------------------------------- */
@@ -313,12 +318,12 @@ button {
   user-select: none;
   gap: 14px;
   padding: 9px 12px;
-  border-top: 1px solid var(--line);
-  font-family: var(--mono);
+  border-top: 1px solid var(--wm-line);
+  font-family: var(--wm-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+  color: var(--wm-ink-3);
 }
 
 .controls button {
@@ -329,14 +334,14 @@ button {
   width: 24px;
   height: 24px;
   border-radius: 3px;
-  color: var(--ink-3);
+  color: var(--wm-ink-3);
   transition:
     background 0.15s,
     color 0.15s;
 }
 .controls button:hover {
-  background: var(--chip);
-  color: var(--ink);
+  background: var(--wm-chip);
+  color: var(--wm-ink);
 }
 
 .time,
@@ -347,13 +352,13 @@ button {
 .readout {
   margin-left: auto;
   flex: none;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
 }
 
 .zoom-level {
   min-width: 34px;
   text-align: center;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
 }
 
 .controls button:disabled {
@@ -362,7 +367,7 @@ button {
 }
 .controls button:disabled:hover {
   background: none;
-  color: var(--ink-3);
+  color: var(--wm-ink-3);
 }
 
 .controls .export-btn {
@@ -371,14 +376,14 @@ button {
   white-space: nowrap;
   padding: 0 11px;
   border-radius: 3px;
-  background: var(--chip-hi);
+  background: var(--wm-chip-hi);
   font-size: 13px;
   letter-spacing: 0;
-  color: var(--ink);
+  color: var(--wm-ink);
   transition: background 0.15s;
 }
 .controls .export-btn:hover:not(:disabled) {
-  background: var(--line-hi);
+  background: var(--wm-line-hi);
 }
 .controls .export-btn:disabled {
   opacity: 0.45;
@@ -393,18 +398,18 @@ button {
   align-items: center;
   gap: 16px;
   padding: 9px 12px;
-  border-top: 1px solid var(--line);
-  font-family: var(--mono);
+  border-top: 1px solid var(--wm-line);
+  font-family: var(--wm-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: var(--ink-4);
+  color: var(--wm-ink-4);
 }
 .result[hidden] {
   display: none;
 }
 
 .dl {
-  color: var(--accent);
+  color: var(--wm-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
