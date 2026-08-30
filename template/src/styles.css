@@ -160,6 +160,12 @@ button {
 .fit w-composition {
   display: block;
   width: 100%;
+  /* The zero above kills the inline-block baseline gap under the composition,
+     but line-height inherits, and a scene that does not set its own would get
+     zero-height line boxes — stacked text collapsing onto one baseline in the
+     player and in the export, while a bare mount looks right. Put it back at
+     the boundary: the shell's layout tricks stop at the frame edge. */
+  line-height: normal;
 }
 
 /* Timeline ---------------------------------------------------------------- */
