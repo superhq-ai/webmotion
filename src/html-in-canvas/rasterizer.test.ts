@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { normalizeFontFamily, parseUnicodeRange, pruneUnusedFontFaces } from "./rasterizer.js";
+import {
+  customPropertyNames,
+  normalizeFontFamily,
+  parseUnicodeRange,
+  pruneUnusedFontFaces,
+} from "./rasterizer.js";
 
 const usage = (families: string[], text = "") => ({
   families: new Set(families),
@@ -98,5 +103,24 @@ describe("pruneUnusedFontFaces", () => {
     expect(out).toContain("@media screen");
     expect(out).toContain("color: teal");
     expect(out).not.toContain("Comic Sans");
+  });
+});
+
+describe("customPropertyNames", () => {
+  // Only the enumeration contract matters here; that a computed style lists
+  // inherited custom properties at all is a browser behaviour, checked in the
+  // export verification script rather than in happy-dom.
+  const declaration = (names: string[]) =>
+    ({ length: names.length, item: (i: number) => names[i] }) as unknown as CSSStyleDeclaration;
+
+  it("picks out only the custom properties", () => {
+    expect(customPropertyNames(declaration(["color", "--ink", "font-size", "--gold"]))).toEqual([
+      "--ink",
+      "--gold",
+    ]);
+  });
+
+  it("returns nothing when a scene declares no tokens", () => {
+    expect(customPropertyNames(declaration(["color", "font-size"]))).toEqual([]);
   });
 });

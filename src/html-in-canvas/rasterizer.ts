@@ -368,6 +368,23 @@ const INHERITED_PROPS = [
   "direction",
 ] as const;
 
+/**
+ * Custom property names visible on an element's computed style.
+ *
+ * Design tokens are inheritable like any other custom property, but there are
+ * arbitrarily many of them, so unlike INHERITED_PROPS they cannot be listed
+ * ahead of time. The computed style object enumerates the resolved set, which
+ * is the only way to discover them.
+ */
+export function customPropertyNames(cs: CSSStyleDeclaration): string[] {
+  const names: string[] = [];
+  for (let i = 0; i < cs.length; i++) {
+    const name = cs.item(i);
+    if (name.startsWith("--")) names.push(name);
+  }
+  return names;
+}
+
 async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   const clone = node.cloneNode(true) as HTMLElement;
   syncFormState(node, clone);
@@ -379,6 +396,18 @@ async function prepareClone(node: HTMLElement): Promise<HTMLElement> {
   clone.style.visibility = "visible";
   const cs = getComputedStyle(node);
   for (const prop of INHERITED_PROPS) {
+    if (!clone.style.getPropertyValue(prop)) {
+      clone.style.setProperty(prop, cs.getPropertyValue(prop));
+    }
+  }
+  // Same reasoning, for design tokens. A scene that declares `--accent` once on
+  // the composition element (or on :root, which in an SVG document means the
+  // <svg>, not the clone's <html>) leaves every var() inside a standalone layer
+  // clone unresolvable — and an invalid var() falls back to unset, so colors
+  // become inherited white and shadows disappear entirely. Bridging the
+  // resolved values onto the clone root puts them back at the top of the
+  // subtree, where a rule further down can still override them normally.
+  for (const prop of customPropertyNames(cs)) {
     if (!clone.style.getPropertyValue(prop)) {
       clone.style.setProperty(prop, cs.getPropertyValue(prop));
     }
