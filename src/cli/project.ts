@@ -20,6 +20,8 @@ export interface Project {
   packageDist: string;
   /** Directory of the `three` package, when one is installed. */
   threeDir: string | null;
+  /** Directory of the `mp4box` package, when one is installed. */
+  mp4boxDir: string | null;
   /** Directory of mp4-muxer, which the library imports by bare specifier. */
   muxerDir: string | null;
 }
@@ -123,6 +125,7 @@ export function resolveProject(cwd: string, requested?: string): Project {
     entryKind: entry.endsWith(".html") ? "html" : "module",
     packageDist,
     threeDir: dependency("three"),
+    mp4boxDir: dependency("mp4box"),
     muxerDir: dependency("mp4-muxer"),
   };
 }

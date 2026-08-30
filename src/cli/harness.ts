@@ -14,6 +14,7 @@ export const API_PATH = "/__wm/api.js";
 const PACKAGE_PREFIX = "/__wm/pkg/";
 const THREE_PREFIX = "/__wm/three/";
 const MUXER_PREFIX = "/__wm/mp4-muxer/";
+const MP4BOX_PREFIX = "/__wm/mp4box/";
 
 function importMap(project: Project): string {
   const imports: Record<string, string> = {
@@ -21,6 +22,7 @@ function importMap(project: Project): string {
     "@superhq/webmotion/elements": `${PACKAGE_PREFIX}elements/index.js`,
     "@superhq/webmotion/html-in-canvas": `${PACKAGE_PREFIX}html-in-canvas/index.js`,
     "@superhq/webmotion/three": `${PACKAGE_PREFIX}three/index.js`,
+    "@superhq/webmotion/video": `${PACKAGE_PREFIX}video/index.js`,
     "@superhq/webmotion/live": `${PACKAGE_PREFIX}live/index.js`,
   };
 
@@ -28,6 +30,7 @@ function importMap(project: Project): string {
   // even though nothing here encodes anything.
   if (project.muxerDir) imports["mp4-muxer"] = `${MUXER_PREFIX}build/mp4-muxer.mjs`;
 
+  if (project.mp4boxDir) imports["mp4box"] = `${MP4BOX_PREFIX}dist/mp4box.all.mjs`;
   if (project.threeDir) {
     imports["three"] = `${THREE_PREFIX}build/three.module.js`;
     imports["three/webgpu"] = `${THREE_PREFIX}build/three.webgpu.js`;
@@ -80,6 +83,8 @@ ${importMap(project)}
     // The 3D entry is optional and pulls in three, so only load it when the
     // scene actually asks for a model.
     if (/<w-model/i.test(scene)) await import("@superhq/webmotion/three");
+    // Same for the video entry, which pulls in mp4box.
+    if (/<w-video/i.test(scene)) await import("@superhq/webmotion/video");
 
     const comp = document.createElement("w-composition");
     const attrs = {
@@ -108,4 +113,4 @@ ${importMap(project)}
 `;
 }
 
-export { PACKAGE_PREFIX, THREE_PREFIX, MUXER_PREFIX };
+export { PACKAGE_PREFIX, THREE_PREFIX, MUXER_PREFIX, MP4BOX_PREFIX };

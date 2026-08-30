@@ -1,7 +1,7 @@
 // One scene, open in a real browser. Everything the commands do (screenshots,
 // probes, facts) goes through a Session, so there is exactly one place that
 // knows how a scene gets booted and torn down.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Browser, ConsoleMessage, Page } from "playwright";
 import type { CompositionInfo, FrameProbe, SceneFacts } from "./browser/api.js";
@@ -11,6 +11,7 @@ import {
   MUXER_PREFIX,
   PACKAGE_PREFIX,
   THREE_PREFIX,
+  MP4BOX_PREFIX,
   harnessHtml,
 } from "./harness.js";
 import { type Project, servedPath } from "./project.js";
@@ -81,7 +82,12 @@ export async function openScene(project: Project, options: SessionOptions = {}):
     { prefix: PACKAGE_PREFIX, dir: project.packageDist },
     { prefix: "/", dir: project.root },
   ];
+  // Vite serves `public/` at the site root, so a scene written for the
+  // starter references assets as "clips/x.mp4"; resolve those the same way.
+  const publicDir = path.join(project.root, "public");
+  if (existsSync(publicDir)) mounts.push({ prefix: "/", dir: publicDir });
   if (project.threeDir) mounts.push({ prefix: THREE_PREFIX, dir: project.threeDir });
+  if (project.mp4boxDir) mounts.push({ prefix: MP4BOX_PREFIX, dir: project.mp4boxDir });
   if (project.muxerDir) mounts.push({ prefix: MUXER_PREFIX, dir: project.muxerDir });
 
   const virtual: Record<string, { body: string; type: string }> = {

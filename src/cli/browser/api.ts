@@ -157,7 +157,18 @@ class Probe implements WebmotionProbeApi {
   }
 
   async seek(frame: number): Promise<void> {
+    // Elements that load or decode asynchronously (video, 3D models) expose
+    // wmReady / wmAwaitFrame; a screenshot before those settle shows nothing.
+    const els = Array.from(this.stage.querySelectorAll<HTMLElement>("*"));
+    const ready = els
+      .map((el) => (el as { wmReady?: unknown }).wmReady)
+      .filter((p): p is Promise<void> => p instanceof Promise);
+    if (ready.length > 0) await Promise.all(ready);
     this.comp.seek(frame);
+    const painted = els
+      .map((el) => (el as { wmAwaitFrame?: () => Promise<void> }).wmAwaitFrame?.call(el))
+      .filter((p): p is Promise<void> => p instanceof Promise);
+    if (painted.length > 0) await Promise.all(painted);
     // Two frames: one for the style writes to land, one for anything that
     // paints off the back of them (the 3D entry renders on rAF).
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
